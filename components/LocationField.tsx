@@ -22,11 +22,11 @@ export function LocationField({ buildings, value, onChange, prefix = 'Found at' 
   const showPicker = picking || autoPick;
 
   return (
-    <div className="rounded-xl border border-neutral-300 bg-white px-3 py-3">
+    <div aria-live="polite" className="rounded-[14px] border border-neutral-300 bg-white px-3.5 py-3">
       {value ? (
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm"><span className="text-neutral-500">{prefix} </span><span className="font-semibold">{value.name}</span> <span className="text-green-700">✓</span></p>
-          <button type="button" onClick={() => setPicking(true)} className="text-sm font-semibold text-cardinal">Change</button>
+          <p className="text-sm"><span className="text-neutral-500">{prefix} </span><span className="font-semibold">{value.name}</span> <span className="text-green-700" aria-hidden="true">✓</span></p>
+          <button type="button" onClick={() => setPicking(true)} className="min-h-11 rounded-xl px-2 text-sm font-semibold text-cardinal">Change</button>
         </div>
       ) : state.kind === 'locating' || state.kind === 'idle' ? (
         <p className="flex items-center gap-2 text-sm text-neutral-600"><Spinner small /> Finding your building…</p>
@@ -35,7 +35,7 @@ export function LocationField({ buildings, value, onChange, prefix = 'Found at' 
           <p className="text-sm text-neutral-600">
             {state.kind === 'off_campus' ? 'Looks like you’re off campus.' : state.kind === 'failed' ? state.reason : ''} Pick a building.
           </p>
-          <button type="button" onClick={() => setPicking(true)} className="text-sm font-semibold text-cardinal">Pick</button>
+          <button type="button" onClick={() => setPicking(true)} className="min-h-11 rounded-xl px-2 text-sm font-semibold text-cardinal">Pick</button>
         </div>
       )}
       {showPicker && (

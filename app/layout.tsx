@@ -5,9 +5,12 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "FindOn: USC Lost & Found",
   description: "AI-powered campus-wide lost and found for USC.",
+  applicationName: "FindOn",
+  appleWebApp: { capable: true, title: "FindOn", statusBarStyle: "default" },
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1 };
+// Pinch zoom stays on (no maximum-scale). Theme color tints the phone's browser bar cardinal.
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#990000", viewportFit: "cover" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

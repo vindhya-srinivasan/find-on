@@ -15,9 +15,9 @@ const tabs = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-white">
+    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-white md:shadow-[0_0_0_1px_rgb(0_0_0/0.06)]">
       <header className="sticky top-0 z-30 flex items-center justify-between bg-white/95 px-5 pb-3 pt-5 backdrop-blur">
-        <Link href="/" className="text-2xl font-extrabold tracking-tight">
+        <Link href="/" aria-label="FindOn home" className="flex min-h-11 items-center text-2xl font-extrabold tracking-tight">
           <span className="text-cardinal">Find</span><span className="text-gold">On</span>
         </Link>
         <span className="flex items-center gap-2">
@@ -35,13 +35,13 @@ function BottomNav() {
   const path = usePathname();
   if (path.startsWith('/login')) return null;
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto grid max-w-md grid-cols-3 border-t border-neutral-100 bg-white pb-[env(safe-area-inset-bottom)]">
+    <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 mx-auto grid max-w-md grid-cols-3 border-t border-neutral-100 bg-white pb-[env(safe-area-inset-bottom)]">
       {tabs.map((t) => {
         const active = t.href === '/'
           ? path === '/' || path.startsWith('/found') || path.startsWith('/lost') || path.startsWith('/items')
           : path.startsWith(t.href);
         return (
-          <Link key={t.href} href={t.href} className={`flex h-[3.25rem] items-center justify-center text-sm ${active ? 'font-bold text-cardinal' : 'font-medium text-neutral-500'}`}>
+          <Link key={t.href} href={t.href} aria-current={active ? 'page' : undefined} className={`flex h-[3.25rem] items-center justify-center text-sm ${active ? 'font-bold text-cardinal' : 'font-medium text-neutral-500'}`}>
             {t.label}
           </Link>
         );

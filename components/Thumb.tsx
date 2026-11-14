@@ -6,9 +6,9 @@ export function Thumb({ src, blurred = true, size = 'md', label }:
   return (
     <div className={`${dims} relative shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-neutral-200 to-neutral-300`}>
       {src ? (
-        <img src={src} alt={label ?? 'Item photo'} className={`h-full w-full object-cover ${blurred ? 'scale-110 blur-md' : ''}`} />
+        <img src={src} alt={label ?? 'Item photo'} loading="lazy" decoding="async" className={`h-full w-full object-cover ${blurred ? 'scale-110 blur-md' : ''}`} />
       ) : (
-        <div className="flex h-full w-full items-center justify-center text-[10px] font-medium uppercase tracking-wide text-neutral-500">
+        <div className="flex h-full w-full items-center justify-center text-[10px] font-medium uppercase tracking-wide text-neutral-600">
           {label ?? 'Photo'}
         </div>
       )}

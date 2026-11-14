@@ -59,14 +59,14 @@ export default function LostNew() {
         <>
           <StepHeader step={1} total={TOTAL} title="What did you lose?" help="Describe it like you'd tell a friend. The more detail, the better the match." />
           <textarea
-            value={text} onChange={(e) => setText(e.target.value)} rows={5} autoFocus
+            aria-label="Describe what you lost" value={text} onChange={(e) => setText(e.target.value)} rows={5}
             placeholder="e.g. Grey Hydro Flask with a pink sticker, lost near Viterbi yesterday afternoon"
             className={`${inputClass} resize-none`}
           />
           <div className="mt-3 flex flex-wrap gap-2">
-            {PROMPTS.map((p) => <span key={p} className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-600">{p}</span>)}
+            {PROMPTS.map((p) => <span key={p} className="rounded-full bg-cream px-3 py-1.5 text-sm text-neutral-700">{p}</span>)}
           </div>
-          <p className="mt-4 text-xs text-neutral-500">Keep a detail or two to yourself (like a sticker). You may be asked about it to prove it&apos;s yours.</p>
+          <p className="mt-4 text-sm text-neutral-600">Keep a detail or two to yourself (like a sticker). You may be asked about it to prove it&apos;s yours.</p>
           <FlowBottomSpace />
           <StickyAction>
             <PrimaryAction disabled={text.trim().length < 8} onClick={() => setStep(2)}>Next</PrimaryAction>
@@ -80,22 +80,22 @@ export default function LostNew() {
           {!notSure && (
             <div className="space-y-2">
               {loc.kind === 'locating' && !places.length && (
-                <p className="flex items-center gap-2 text-sm text-neutral-600"><Spinner small /> Adding where you are now…</p>
+                <p role="status" className="flex items-center gap-2 text-sm text-neutral-700"><Spinner small /> Adding where you are now…</p>
               )}
               {places.map((p) => (
-                <div key={p.id} className="flex items-center justify-between rounded-xl border border-neutral-300 bg-white px-3 py-3">
+                <div key={p.id} className="flex min-h-12 items-center justify-between rounded-[14px] border border-neutral-300 bg-white pl-3.5 pr-1">
                   <span className="font-medium">{p.name}</span>
-                  <button type="button" onClick={() => setPlaces(places.filter((x) => x.id !== p.id))} className="text-sm font-semibold text-neutral-500 hover:text-red-700">Remove</button>
+                  <button type="button" onClick={() => setPlaces(places.filter((x) => x.id !== p.id))} aria-label={`Remove ${p.name}`} className="min-h-11 rounded-xl px-3 text-sm font-semibold text-neutral-700 hover:text-red-700">Remove</button>
                 </div>
               ))}
               <button type="button" onClick={() => setPicking(true)}
-                className="w-full rounded-xl border-2 border-dashed border-neutral-300 px-3 py-3 text-sm font-semibold text-neutral-700 hover:border-cardinal hover:text-cardinal">
+                className="min-h-12 w-full rounded-[14px] border-2 border-dashed border-neutral-400 px-3 text-sm font-semibold text-neutral-800 hover:border-cardinal hover:text-cardinal">
                 + Add a place
               </button>
             </div>
           )}
-          <label className="mt-5 flex items-center gap-3 rounded-xl bg-white px-3 py-3 text-sm">
-            <input type="checkbox" checked={notSure} onChange={(e) => setNotSure(e.target.checked)} className="h-5 w-5 accent-[#990000]" />
+          <label className="mt-5 flex min-h-12 items-center gap-3 rounded-[14px] bg-cream px-3.5 py-3 text-[15px]">
+            <input type="checkbox" checked={notSure} onChange={(e) => setNotSure(e.target.checked)} className="h-5 w-5" />
             I&apos;m not sure where. Search all of campus.
           </label>
           {picking && (

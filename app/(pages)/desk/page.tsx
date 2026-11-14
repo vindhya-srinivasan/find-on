@@ -58,10 +58,10 @@ function Receive({ onDone, expected }: { onDone: () => void; expected: PublicFou
       <p className="font-semibold">Someone dropping off an item?</p>
       <p className="text-sm text-neutral-600">Type the item code from their phone.</p>
       <div className="flex gap-2">
-        <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="FO-1234" className={inputClass} />
+        <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} autoComplete="off" autoCapitalize="characters" enterKeyHint="done" aria-label="Item code" placeholder="FO-1234" className={inputClass} />
         <Button disabled={code.trim().length < 4} loading={busy} onClick={receive}>Receive</Button>
       </div>
-      {msg && <p className="rounded-xl bg-green-50 px-3 py-2 text-sm text-green-800">{msg}</p>}
+      {msg && <p role="status" className="rounded-xl bg-green-50 px-3 py-2 text-sm text-green-800">{msg}</p>}
       <ErrorText error={error} />
       {expected.length > 0 && <p className="text-xs text-neutral-500">Expected: {expected.map((e) => e.item_code).join(', ')}</p>}
     </Card>
@@ -105,10 +105,10 @@ function ReleaseCard({ item, onDone }: { item: PublicFoundItem; onDone: () => vo
         <p className="text-sm text-neutral-600">Found at {nameOf(item.found_building_id)} · {shortDate(item.found_date)}</p>
       </div>
       <div className="flex gap-2">
-        <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Owner's pickup code" className={inputClass} />
+        <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="off" enterKeyHint="done" aria-label="Owner's pickup code" placeholder="Owner's pickup code" className={inputClass} />
         <Button disabled={code.length !== 6} loading={busy} onClick={release}>Release</Button>
       </div>
-      <p className="text-xs text-neutral-500">Check their USC ID too.</p>
+      <p className="text-sm text-neutral-600">Check their USC ID too.</p>
       <ErrorText error={error} />
     </Card>
   );

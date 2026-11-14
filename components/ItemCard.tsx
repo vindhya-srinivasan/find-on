@@ -8,7 +8,7 @@ import { itemStatusLabel, shortDate } from './format';
 export function ItemCard({ item, buildingName, href, reason, score }:
   { item: PublicFoundItem; buildingName: string; href: string; reason?: string; score?: number }) {
   return (
-    <Link href={href} className="flex gap-3 rounded-2xl border border-neutral-200 bg-white p-3 transition hover:border-neutral-400">
+    <Link href={href} className="flex gap-3 rounded-[20px] border border-neutral-200 bg-white p-3 transition hover:border-neutral-400">
       <Thumb src={item.blurred_thumb_url} label={item.category} />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">

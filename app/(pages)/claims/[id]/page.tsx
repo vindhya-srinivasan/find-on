@@ -89,9 +89,10 @@ function Quiz({ claim, onDone }: { claim: ClaimDetail; onDone: () => void }) {
           <textarea
             id={`a-${q.id}`} rows={2} value={answers[q.id] ?? ''}
             onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
-            placeholder="Type your answer" className={`${inputClass} resize-none`}
+            placeholder="Type your answer" aria-describedby={q.hint ? `h-${q.id}` : undefined}
+            className={`${inputClass} resize-none [field-sizing:content] min-h-20`}
           />
-          {q.hint && <p className="text-xs text-neutral-500">{q.hint}</p>}
+          {q.hint && <p id={`h-${q.id}`} className="text-sm text-neutral-600">{q.hint}</p>}
         </div>
       ))}
 
@@ -136,7 +137,7 @@ function Verified({ claim }: { claim: ClaimDetail }) {
           <Card>
             <p className="font-semibold">Found by {r?.finder_name}</p>
             {r?.finder_availability && <p className="text-sm text-neutral-600">Usually free: {r.finder_availability}</p>}
-            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Meet in a public, staffed place during the day, like a building lobby or the DPS office.</p>
+            <p className="mt-2 rounded-xl bg-cream px-3 py-2 text-sm text-[#5A4E3E]">Meet in a public, staffed place during the day, like a building lobby or the DPS office.</p>
           </Card>
           <Chat claimId={claim.id} />
         </>
@@ -164,19 +165,19 @@ function Chat({ claimId }: { claimId: string }) {
   return (
     <Card>
       <p className="mb-3 font-semibold">Plan the handoff</p>
-      <div className="max-h-64 space-y-2 overflow-y-auto">
-        {msgs.length === 0 && <p className="text-sm text-neutral-500">Say hi and suggest a time and place.</p>}
+      <div className="max-h-64 space-y-2 overflow-y-auto overscroll-contain" aria-live="polite" aria-label="Messages">
+        {msgs.length === 0 && <p className="text-sm text-neutral-600">Say hi and suggest a time and place.</p>}
         {msgs.map((m) => (
           <div key={m.id} className={`flex ${m.mine ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${m.mine ? 'bg-cardinal text-white' : 'bg-neutral-100'}`}>
               {m.body}
-              <div className={`mt-0.5 text-[10px] ${m.mine ? 'text-red-100' : 'text-neutral-500'}`}>{m.mine ? 'You' : m.sender_name} · {timeAgo(m.created_at)}</div>
+              <div className={`mt-0.5 text-[11px] ${m.mine ? 'text-red-100' : 'text-neutral-600'}`}>{m.mine ? 'You' : m.sender_name} · {timeAgo(m.created_at)}</div>
             </div>
           </div>
         ))}
       </div>
       <div className="mt-3 flex gap-2">
-        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder="Message" className={inputClass} />
+        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} aria-label="Message the finder" autoComplete="off" enterKeyHint="send" placeholder="Message" className={inputClass} />
         <Button onClick={send} disabled={!text.trim()}>Send</Button>
       </div>
     </Card>

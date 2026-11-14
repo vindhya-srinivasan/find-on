@@ -1,21 +1,71 @@
 @import "tailwindcss";
 
+/* USC theme. Cardinal #990000 and gold #FFCC00. Gold is a fill color only: never use it for text on white. */
 :root {
   --background: #ffffff;
   --foreground: #171717;
   --usc-cardinal: #990000;
+  --usc-cardinal-dark: #7a0000;
   --usc-gold: #ffcc00;
+  --cream: #faf7f2;
+  color-scheme: light;
+  accent-color: var(--usc-cardinal); /* brands native checkboxes, radios, range inputs */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-cardinal: var(--usc-cardinal);
+  --color-cardinal-dark: var(--usc-cardinal-dark);
   --color-gold: var(--usc-gold);
+  --color-cream: var(--cream);
   --font-sans: "Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  overflow-x: clip; /* never scroll sideways on phones */
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+h1, h2, h3 { text-wrap: balance; }
+p, li, label { text-wrap: pretty; }
+
+/* Visible keyboard focus on every control. */
+:where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--usc-cardinal);
+  outline-offset: 2px;
+}
+/* On cardinal backgrounds the ring switches to gold so it stays visible. */
+.on-cardinal:focus-visible { outline-color: var(--usc-gold); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Native <dialog> bottom sheet (building picker). */
+dialog.sheet {
+  margin: auto auto 0 auto;
+  padding: 0;
+  border: 0;
+  width: 100%;
+  max-width: 28rem;
+  max-height: 80dvh;
+  border-radius: 24px 24px 0 0;
+  overscroll-behavior: contain;
+}
+dialog.sheet::backdrop { background: rgb(0 0 0 / 0.4); }
+
+/* Tablets and laptops: the app stays a phone-width column on a cream page. */
+@media (min-width: 768px) {
+  body { background: var(--cream); }
 }

@@ -85,7 +85,7 @@ export default function FoundNew() {
         <>
           <StepHeader step={1} total={TOTAL} title="Take a photo of what you found" help="One clear photo is enough. Add more if there are stickers, marks or a name tag." />
           <PhotoInput files={photos} onChange={setPhotos} />
-          <p className="mt-4 text-xs text-neutral-500">Other students only ever see a blurred version.</p>
+          <p className="mt-4 text-sm text-neutral-600">Other students only ever see a blurred version.</p>
           <StickyAction>
             <PrimaryAction disabled={!photos.length} onClick={() => setStep(2)}>Next</PrimaryAction>
           </StickyAction>
@@ -112,7 +112,7 @@ export default function FoundNew() {
         <>
           <StepHeader step={3} total={TOTAL} title="Check the details" help="We read your photo. Fix anything that's wrong." onBack={() => setStep(2)} />
           {analyzing && (
-            <Card className="flex items-center gap-3 text-sm text-neutral-600"><Spinner /> Looking at your photo…</Card>
+            <Card className="flex items-center gap-3 text-sm text-neutral-700"><span role="status" className="flex items-center gap-3"><Spinner /> Looking at your photo…</span></Card>
           )}
           {analysis && !analysis.is_valid_item && (
             <Card className="space-y-3">
@@ -152,8 +152,8 @@ export default function FoundNew() {
             />
             {method === 'finder' && (
               <div>
-                <Label hint="So the owner knows when to meet you.">When are you usually free?</Label>
-                <input value={availability} onChange={(e) => setAvailability(e.target.value)} placeholder="e.g. Weekdays 10 AM – 4 PM" className={inputClass} />
+                <Label htmlFor="availability" hint="So the owner knows when to meet you.">When are you usually free?</Label>
+                <input id="availability" enterKeyHint="done" autoComplete="off" value={availability} onChange={(e) => setAvailability(e.target.value)} placeholder="e.g. Weekdays 10 AM – 4 PM" className={inputClass} />
               </div>
             )}
             <ErrorText error={error} />
@@ -179,42 +179,42 @@ function DetailsEditor({ analysis, onChange, buildingName }:
   return (
     <div className="space-y-5">
       <Card>
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">Everyone sees</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-600">Everyone sees</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label>What is it?</Label>
-            <input value={analysis.category} onChange={(e) => set({ category: e.target.value })} placeholder="e.g. water bottle" className={inputClass} />
+            <Label htmlFor="category">What is it?</Label>
+            <input id="category" autoComplete="off" enterKeyHint="next" value={analysis.category} onChange={(e) => set({ category: e.target.value })} placeholder="e.g. water bottle" className={inputClass} />
           </div>
           <div>
-            <Label>Main color</Label>
-            <input value={analysis.color} onChange={(e) => set({ color: e.target.value })} placeholder="e.g. black" className={inputClass} />
+            <Label htmlFor="color">Main color</Label>
+            <input id="color" autoComplete="off" enterKeyHint="next" value={analysis.color} onChange={(e) => set({ color: e.target.value })} placeholder="e.g. black" className={inputClass} />
           </div>
         </div>
         <p className="mt-3 text-sm text-neutral-600">Shown as: <span className="font-medium text-neutral-900">{capital(analysis.color)} {analysis.category || '…'} · {buildingName}</span></p>
       </Card>
 
-      <Card className="border-green-200 bg-green-50/40">
-        <p className="text-xs font-semibold uppercase tracking-wide text-green-800">Kept private</p>
+      <Card className="border-transparent bg-cream">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#5A4E3E]">Kept private</p>
         <p className="mb-3 mt-1 text-sm text-neutral-600">Only used to check the real owner. Never shown to anyone browsing.</p>
         <div className="mb-3">
-          <Label>Brand</Label>
-          <input value={analysis.brand ?? ''} onChange={(e) => set({ brand: e.target.value || null })} placeholder="If you can tell" className={inputClass} />
+          <Label htmlFor="brand">Brand</Label>
+          <input id="brand" autoComplete="off" value={analysis.brand ?? ''} onChange={(e) => set({ brand: e.target.value || null })} placeholder="If you can tell" className={inputClass} />
         </div>
-        <Label>Distinguishing marks</Label>
+        <Label htmlFor="new-detail">Distinguishing marks</Label>
         <ul className="space-y-2">
           {analysis.hidden_details.map((d, i) => (
             <li key={i} className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm">
               <span>{d.detail}</span>
-              <button type="button" onClick={() => setDetails(analysis.hidden_details.filter((_, j) => j !== i))} className="text-xs font-semibold text-neutral-500 hover:text-red-700">Remove</button>
+              <button type="button" onClick={() => setDetails(analysis.hidden_details.filter((_, j) => j !== i))} aria-label={`Remove: ${d.detail}`} className="min-h-11 shrink-0 rounded-xl px-2 text-sm font-semibold text-neutral-700 hover:text-red-700">Remove</button>
             </li>
           ))}
         </ul>
         <div className="mt-2 flex gap-2">
-          <input value={newDetail} onChange={(e) => setNewDetail(e.target.value)} placeholder="Add one: sticker, scratch, name…" className={inputClass} />
+          <input id="new-detail" autoComplete="off" enterKeyHint="done" value={newDetail} onChange={(e) => setNewDetail(e.target.value)} placeholder="Add one: sticker, scratch, name…" className={inputClass} />
           <button
             type="button" disabled={!newDetail.trim()}
             onClick={() => { setDetails([...analysis.hidden_details, { detail: newDetail.trim(), weight: 3 }]); setNewDetail(''); }}
-            className="shrink-0 rounded-xl border border-neutral-300 bg-white px-3 text-sm font-semibold disabled:text-neutral-400"
+            className="min-h-12 shrink-0 rounded-[14px] border border-neutral-300 bg-white px-4 text-sm font-semibold disabled:text-neutral-500"
           >
             Add
           </button>

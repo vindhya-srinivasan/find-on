@@ -36,7 +36,7 @@ export default function MyPage() {
       {me.lost.length > 0 && (
         <Section title="Things I lost">
           {me.lost.map((l) => (
-            <Link key={l.id} href={`/lost/${l.id}`} className="block rounded-2xl border border-neutral-200 bg-white p-4">
+            <Link key={l.id} href={`/lost/${l.id}`} className="block rounded-[20px] border border-neutral-200 bg-white p-4">
               <div className="flex items-start justify-between gap-2">
                 <p className="font-medium">{l.summary}</p>
                 <Badge tone={l.status === 'open' ? 'gold' : 'neutral'}>{l.status === 'open' ? 'Searching' : l.status === 'resolved' ? 'Found' : 'Closed'}</Badge>
@@ -74,7 +74,7 @@ function ClaimRow({ claim }: { claim: ClaimDetail }) {
     : 'View →';
   const tone = claim.status === 'rejected' ? 'red' : claim.status === 'needs_review' ? 'blue' : claim.status === 'returned' ? 'neutral' : 'green';
   return (
-    <Link href={`/claims/${claim.id}`} className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white p-4">
+    <Link href={`/claims/${claim.id}`} className="flex items-center justify-between gap-3 rounded-[20px] border border-neutral-200 bg-white p-4">
       <div>
         <p className="font-medium capitalize">{claim.item.color} {claim.item.category}</p>
         <div className="mt-1"><Badge tone={tone}>{claimStatusLabel[claim.status]}</Badge></div>
@@ -121,9 +121,9 @@ function FoundRow({ item, pending, onChange }: { item: PublicFoundItem; pending:
         <>
           <div>
             <p className="mb-1 text-sm font-semibold">Meeting the owner?</p>
-            <p className="mb-2 text-xs text-neutral-500">Ask for their 6-digit pickup code and enter it before you hand it over.</p>
+            <p className="mb-2 text-sm text-neutral-600">Ask for their 6-digit pickup code and enter it before you hand it over.</p>
             <div className="flex gap-2">
-              <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Pickup code" className={inputClass} />
+              <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="off" enterKeyHint="done" aria-label="Owner's pickup code" placeholder="Pickup code" className={inputClass} />
               <Button disabled={code.length !== 6} loading={busy === 'return'} onClick={() => run('return', () => api.returnItem(item.id, code))}>Confirm</Button>
             </div>
           </div>
