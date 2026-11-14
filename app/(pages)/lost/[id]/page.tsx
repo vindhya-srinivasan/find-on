@@ -1,4 +1,4 @@
-// Person 1 — suggested matches for a lost report
+// Person 1: suggested matches for a lost report
 export default function Page() {
   return (
     <main className="mx-auto max-w-md p-6">

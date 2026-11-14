@@ -1,4 +1,4 @@
-// Person 2 — desk dashboard data (desk role only). Contract: Team Tasks > API routes.
+// Person 2: desk dashboard data (desk role only). Contract: Team Tasks > API routes.
 import { notImplemented } from '@/lib/api';
 
 export async function GET() {

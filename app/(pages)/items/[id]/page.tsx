@@ -1,4 +1,4 @@
-// Person 1 — public listing + 'This might be mine'
+// Person 1: public listing + 'This might be mine'
 export default function Page() {
   return (
     <main className="mx-auto max-w-md p-6">

@@ -1,5 +1,5 @@
-// SHARED CONTRACT — edited only by Person 2, after the team agrees in chat.
-// Copied from "FindOn — Team Tasks" > Shared contracts.
+// SHARED CONTRACT: edited only by Person 2, after the team agrees in chat.
+// Copied from "FindOn: Team Tasks" > Shared contracts.
 
 export type Weight = 1 | 2 | 3; // low, medium, high
 export type Verdict = 'match' | 'partial' | 'not_mentioned' | 'contradicts';

@@ -1,4 +1,4 @@
-// Person 3 — plain-code scoring (no AI). STUB until Person 3 implements the spec's Scoring logic.
+// Person 3: plain-code scoring (no AI). STUB until Person 3 implements the spec's Scoring logic.
 import type { ClaimFlag, GradeResult, HiddenDetail, Question, ScoreResult } from '@/types';
 
 export function computeScore(_input: {

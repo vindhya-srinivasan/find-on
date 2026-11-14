@@ -1,4 +1,4 @@
-# FindOn — instructions for Claude
+# FindOn: instructions for Claude
 
 @AGENTS.md
 
@@ -33,7 +33,7 @@ Before editing, ask the user which person they are. If a change is needed in a f
 11. After each task: say what changed, how to test it, and what teammates need to know.
 
 ## Commands
-- `npm run dev` — local app at http://localhost:3000
+- `npm run dev`: local app at http://localhost:3000
 - `npm run build` / `npm run typecheck` / `npm run lint`
-- `npm run test:ai` — Person 3's AI test script
-- `npm run seed` — Person 4's seed script
+- `npm run test:ai`: Person 3's AI test script
+- `npm run seed`: Person 4's seed script

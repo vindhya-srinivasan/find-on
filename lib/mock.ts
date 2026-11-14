@@ -1,4 +1,4 @@
-// Person 1 — fake API responses in the shared types, used until Person 2's routes are live.
+// Person 1: fake API responses in the shared types, used until Person 2's routes are live.
 // Flip NEXT_PUBLIC_USE_MOCKS=false in .env.local to use the real API.
 import type { MatchResult, PublicFoundItem, Question } from '@/types';
 

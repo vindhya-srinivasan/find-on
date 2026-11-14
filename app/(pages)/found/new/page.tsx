@@ -1,4 +1,4 @@
-// Person 1 — finder flow: photo, auto location, landmark, AI draft, return choice
+// Person 1: finder flow: photo, auto location, landmark, AI draft, return choice
 export default function Page() {
   return (
     <main className="mx-auto max-w-md p-6">

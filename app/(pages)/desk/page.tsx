@@ -1,4 +1,4 @@
-// Person 1 — desk dashboard: receive, review claims, release
+// Person 1: desk dashboard: receive, review claims, release
 export default function Page() {
   return (
     <main className="mx-auto max-w-md p-6">

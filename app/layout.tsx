@@ -1,9 +1,9 @@
-// Person 1 — root layout (mobile-first shell; bottom nav goes here).
+// Person 1: root layout (mobile-first shell; bottom nav goes here).
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "FindOn — USC Lost & Found",
+  title: "FindOn: USC Lost & Found",
   description: "AI-powered campus-wide lost and found for USC.",
 };
 

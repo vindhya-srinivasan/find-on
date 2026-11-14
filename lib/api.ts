@@ -1,4 +1,4 @@
-// Person 2 — small helpers shared by API routes.
+// Person 2: small helpers shared by API routes.
 export function json(data: unknown, status = 200) {
   return Response.json(data, { status });
 }

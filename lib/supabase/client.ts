@@ -1,4 +1,4 @@
-// Person 2 — Supabase client for the browser (auth only; never read hidden fields from here).
+// Person 2: Supabase client for the browser (auth only; never read hidden fields from here).
 import { createBrowserClient } from '@supabase/ssr';
 
 export function supabaseBrowser() {

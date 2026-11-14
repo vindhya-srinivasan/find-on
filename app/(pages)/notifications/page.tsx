@@ -1,4 +1,4 @@
-// Person 1 — notification list
+// Person 1: notification list
 export default function Page() {
   return (
     <main className="mx-auto max-w-md p-6">

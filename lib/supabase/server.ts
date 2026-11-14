@@ -1,4 +1,4 @@
-// Person 2 — Supabase clients for server code (API routes).
+// Person 2: Supabase clients for server code (API routes).
 import 'server-only';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';

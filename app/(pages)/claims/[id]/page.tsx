@@ -1,4 +1,4 @@
-// Person 1 — verification quiz, result, pickup code, chat
+// Person 1: verification quiz, result, pickup code, chat
 export default function Page() {
   return (
     <main className="mx-auto max-w-md p-6">

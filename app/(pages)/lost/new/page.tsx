@@ -1,4 +1,4 @@
-// Person 1 — owner flow: description, locations, optional photo
+// Person 1: owner flow: description, locations, optional photo
 export default function Page() {
   return (
     <main className="mx-auto max-w-md p-6">

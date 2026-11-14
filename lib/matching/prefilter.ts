@@ -1,4 +1,4 @@
-// Person 3 — plain-code pre-filter before rankMatches. STUB: returns the 10 most recent open items.
+// Person 3: plain-code pre-filter before rankMatches. STUB: returns the 10 most recent open items.
 import type { Building, FoundItemRow, LostReportRow } from '@/types';
 
 export function prefilter(input: { lost: LostReportRow; found: FoundItemRow[]; buildings: Building[] }): FoundItemRow[] {

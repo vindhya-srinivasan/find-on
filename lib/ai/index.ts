@@ -1,4 +1,4 @@
-// Person 3 — AI functions. STUBS: each returns a fixed sample of the right type so Person 2 can build now.
+// Person 3: AI functions. STUBS: each returns a fixed sample of the right type so Person 2 can build now.
 // Person 3 replaces each body with the real Claude call. Do not change the signatures (Team Tasks > AI functions).
 import 'server-only';
 import type {

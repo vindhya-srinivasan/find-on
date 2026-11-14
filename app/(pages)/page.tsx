@@ -1,4 +1,4 @@
-// Person 1 — home: 'I found something' / 'I lost something' + recent listings
+// Person 1: home: 'I found something' / 'I lost something' + recent listings
 export default function Page() {
   return (
     <main className="mx-auto max-w-md p-6">

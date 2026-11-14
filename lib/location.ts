@@ -1,4 +1,4 @@
-// Person 4 — pure location helpers, safe in browser and server. Contract: Team Tasks > Location functions.
+// Person 4: pure location helpers, safe in browser and server. Contract: Team Tasks > Location functions.
 import type { Building } from '@/types';
 
 type LatLng = { lat: number; lng: number };

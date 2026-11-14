@@ -1,4 +1,4 @@
-// Person 1 — @usc.edu email one-time code sign-in
+// Person 1: @usc.edu email one-time code sign-in
 export default function Page() {
   return (
     <main className="mx-auto max-w-md p-6">
