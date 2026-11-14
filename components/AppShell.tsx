@@ -10,6 +10,9 @@ import { Loading } from './ui';
 
 const MAIN = ['/', '/my', '/notifications', '/desk'];
 
+/** Sign-in is switched off for now. Set NEXT_PUBLIC_REQUIRE_SIGNIN=true to bring the login gate back. */
+const REQUIRE_SIGNIN = process.env.NEXT_PUBLIC_REQUIRE_SIGNIN === 'true';
+
 /** Title bar text for inner screens. Flows (found/lost) show "close" instead of "back". */
 function innerScreen(path: string): { title: string; flow: boolean } | null {
   if (path === '/found/new') return { title: 'Report a found item', flow: true };
@@ -38,10 +41,10 @@ function Frame({ children }: { children: ReactNode }) {
   const inner = innerScreen(path);
 
   useEffect(() => {
-    if (session.status === 'out' && !onLogin) router.replace(`/login?next=${encodeURIComponent(path)}`);
+    if (REQUIRE_SIGNIN && session.status === 'out' && !onLogin) router.replace(`/login?next=${encodeURIComponent(path)}`);
   }, [session.status, onLogin, path, router]);
 
-  const ready = onLogin || session.status === 'in';
+  const ready = onLogin || !REQUIRE_SIGNIN || session.status === 'in';
 
   return (
     <>
@@ -53,7 +56,7 @@ function Frame({ children }: { children: ReactNode }) {
 
       <main className="flex-1 px-4 pb-28 pt-4">{ready ? children : <Loading />}</main>
 
-      {!onLogin && session.status === 'in' && (MAIN.includes(path) || path.startsWith('/lost/') && !inner?.flow) && <BottomNav path={path} />}
+      {!onLogin && ready && (MAIN.includes(path) || path.startsWith('/lost/') && !inner?.flow) && <BottomNav path={path} />}
     </>
   );
 }

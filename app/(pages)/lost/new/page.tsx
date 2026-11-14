@@ -10,17 +10,31 @@ import { useCurrentBuilding } from '@/components/useCurrentBuilding';
 import { BuildingPicker } from '@/components/BuildingPicker';
 import { PhotoInput } from '@/components/PhotoInput';
 import { FlowBottomSpace, PrimaryAction, StepHeader, StickyAction } from '@/components/Flow';
-import { ErrorText, Spinner, inputClass } from '@/components/ui';
+import { ErrorText, Label, Spinner, inputClass } from '@/components/ui';
 
 const TOTAL = 3;
-const PROMPTS = ['What color is it?', 'Brand?', 'Any stickers or marks?', 'When did you last have it?'];
+const KINDS = ['Water bottle', 'Phone', 'Wallet', 'Keys', 'Backpack', 'Earbuds', 'Laptop', 'Jacket', 'ID card'];
+const WHEN = [
+  { id: 'today', label: 'Today' },
+  { id: 'yesterday', label: 'Yesterday' },
+  { id: 'week', label: 'This week' },
+  { id: 'unsure', label: 'Not sure' },
+] as const;
+type When = (typeof WHEN)[number]['id'];
+
+const chip = (on: boolean) =>
+  `min-h-11 rounded-full border px-4 text-sm font-medium ${on ? 'border-cardinal bg-red-50 text-cardinal' : 'border-neutral-300 bg-white text-neutral-800'}`;
 
 export default function LostNew() {
   const router = useRouter();
   const { buildings } = useBuildings();
   const { state: loc, locate } = useCurrentBuilding(buildings);
   const [step, setStep] = useState(1);
-  const [text, setText] = useState('');
+  const [kind, setKind] = useState('');
+  const [color, setColor] = useState('');
+  const [brand, setBrand] = useState('');
+  const [marks, setMarks] = useState('');
+  const [when, setWhen] = useState<When>('unsure');
   const [chosen, setChosen] = useState<Building[] | null>(null); // null = user hasn't edited yet
   // Until the user edits the list, start with where they are now.
   const places = chosen ?? (loc.kind === 'found' ? [loc.building] : []);
@@ -39,7 +53,16 @@ export default function LostNew() {
     setError(null);
     try {
       const form = new FormData();
-      form.append('text', text.trim());
+      // One plain sentence for the AI to parse, plus the same answers as separate fields.
+      const whenText = { today: 'Lost it today.', yesterday: 'Lost it yesterday.', week: 'Lost it this week.', unsure: '' }[when];
+      const text = [`${color} ${brand} ${kind}`.replace(/\s+/g, ' ').trim(), marks.trim() && `with ${marks.trim()}`]
+        .filter(Boolean).join(' ') + `. ${whenText}`.trimEnd();
+      form.append('text', text);
+      form.append('category', kind.trim());
+      form.append('color', color.trim());
+      form.append('brand', brand.trim());
+      form.append('marks', marks.trim());
+      form.append('when', when);
       form.append('buildingIds', JSON.stringify(notSure ? [] : places.map((p) => p.id)));
       form.append('notSure', String(notSure));
       form.append('landmarks', JSON.stringify([]));
@@ -57,26 +80,48 @@ export default function LostNew() {
     <div>
       {step === 1 && (
         <>
-          <StepHeader step={1} total={TOTAL} title="What did you lose?" help="Describe it like you'd tell a friend. The more detail, the better the match." />
-          <textarea
-            aria-label="Describe what you lost" value={text} onChange={(e) => setText(e.target.value)} rows={5}
-            placeholder="e.g. Grey Hydro Flask with a pink sticker, lost near Viterbi yesterday afternoon"
-            className={`${inputClass} resize-none`}
-          />
-          <div className="mt-3 flex flex-wrap gap-2">
-            {PROMPTS.map((p) => <span key={p} className="rounded-full bg-cream px-3 py-1.5 text-sm text-neutral-700">{p}</span>)}
+          <StepHeader step={1} total={TOTAL} title="What did you lose?" help="Three quick questions. Short answers are fine." />
+          <div className="flex flex-col gap-6">
+            <div>
+              <Label htmlFor="kind">1. What is it?</Label>
+              <div className="mb-2 flex flex-wrap gap-2">
+                {KINDS.map((k) => (
+                  <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(kind === k ? '' : k)} className={chip(kind === k)}>{k}</button>
+                ))}
+              </div>
+              <input id="kind" value={kind} onChange={(e) => setKind(e.target.value)} placeholder="Or type it, e.g. umbrella" autoComplete="off" enterKeyHint="next" className={inputClass} />
+            </div>
+
+            <div>
+              <p className="mb-2 text-[15px] font-semibold">2. Color and brand</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="color" className="mb-1 block text-sm text-neutral-700">Main color</label>
+                  <input id="color" value={color} onChange={(e) => setColor(e.target.value)} placeholder="e.g. grey" autoComplete="off" enterKeyHint="next" className={inputClass} />
+                </div>
+                <div>
+                  <label htmlFor="brand" className="mb-1 block text-sm text-neutral-700">Brand <span className="text-neutral-500">(optional)</span></label>
+                  <input id="brand" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Hydro Flask" autoComplete="off" enterKeyHint="next" className={inputClass} />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="marks" hint="e.g. a sticker, a case, a keychain, a scratch. Optional.">3. Anything that makes it stand out?</Label>
+              <input id="marks" value={marks} onChange={(e) => setMarks(e.target.value)} placeholder="Type one or two details" autoComplete="off" enterKeyHint="done" className={inputClass} />
+              <p className="mt-2 rounded-xl bg-cream px-3 py-2 text-sm text-[#5A4E3E]">Tip: keep one detail to yourself. You may be asked about it to prove it&apos;s yours.</p>
+            </div>
           </div>
-          <p className="mt-4 text-sm text-neutral-600">Keep a detail or two to yourself (like a sticker). You may be asked about it to prove it&apos;s yours.</p>
           <FlowBottomSpace />
           <StickyAction>
-            <PrimaryAction disabled={text.trim().length < 8} onClick={() => setStep(2)}>Next</PrimaryAction>
+            <PrimaryAction disabled={!kind.trim() || !color.trim()} onClick={() => setStep(2)}>Next</PrimaryAction>
           </StickyAction>
         </>
       )}
 
       {step === 2 && (
         <>
-          <StepHeader step={2} total={TOTAL} title="Where might you have lost it?" help="Add every place you went. We'll look nearby too." onBack={() => setStep(1)} />
+          <StepHeader step={2} total={TOTAL} title="Where and when?" help="Add every place you went. We'll look nearby too." onBack={() => setStep(1)} />
           {!notSure && (
             <div className="space-y-2">
               {loc.kind === 'locating' && !places.length && (
@@ -98,6 +143,14 @@ export default function LostNew() {
             <input type="checkbox" checked={notSure} onChange={(e) => setNotSure(e.target.checked)} className="h-5 w-5" />
             I&apos;m not sure where. Search all of campus.
           </label>
+          <fieldset className="mt-6">
+            <legend className="mb-2 text-[15px] font-semibold">When did you last have it?</legend>
+            <div className="flex flex-wrap gap-2">
+              {WHEN.map((w) => (
+                <button key={w.id} type="button" aria-pressed={when === w.id} onClick={() => setWhen(w.id)} className={chip(when === w.id)}>{w.label}</button>
+              ))}
+            </div>
+          </fieldset>
           {picking && (
             <BuildingPicker buildings={buildings} title="Add a place" onClose={() => setPicking(false)}
               onPick={(b) => { setPlaces((p) => (p.some((x) => x.id === b.id) ? p : [...p, b])); setPicking(false); }} />
