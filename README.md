@@ -1,36 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FindOn — USC's AI-powered lost & found
 
-## Getting Started
+Campus-wide lost and found: finders snap a photo, owners describe what they lost, Claude matches them, and owners prove ownership with hidden-detail questions before any handover.
 
-First, run the development server:
+Built for AI@USC 2026 (HackSC x USC AI Committee).
 
+## Setup
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repo-url> && cd findon
+npm install
+cp .env.example .env.local   # fill in keys (ask Person 2)
+npm run dev                   # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Team workflow
+- Read `CLAUDE.md` first. Each person owns specific folders; only edit yours.
+- One branch per person: `p1-frontend`, `p2-backend`, `p3-ai`, `p4-data`. Pull `main` before each task; merge at checkpoints.
+- Shared files (`types/index.ts`, `package.json`, `.env.example`) change only through Person 2.
+- Never commit `.env.local` or API keys.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## What's in the skeleton
+- `types/index.ts` — shared data shapes (the contract everyone codes against)
+- `app/api/**` — every API route from the contract, returning 501 until built
+- `app/(pages)/**` — every screen as a placeholder
+- `lib/ai/` — AI function stubs with the final signatures (return sample data)
+- `lib/location.ts` — working distance / nearest-building helpers
+- `lib/mock.ts` — sample data for the frontend while routes are stubbed
+- `lib/supabase/` — browser, server and admin clients
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Stack
+Next.js 16 · React 19 · TypeScript · Tailwind 4 · Supabase · Anthropic Claude (`claude-sonnet-5-5`) · sharp · zod
