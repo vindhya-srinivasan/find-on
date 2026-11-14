@@ -77,3 +77,55 @@ export interface LostReportRow {
   time_start: string; time_end: string; owner_photo_path: string | null;
   status: 'open' | 'resolved' | 'closed'; created_at: string;
 }
+
+// ---- API response shapes the screens rely on (proposed by Person 1; Person 2 returns these) ----
+
+export type Viewer = 'public' | 'finder' | 'desk' | 'claimant';
+
+/** GET /api/items/:id: public fields always; the rest only for finder, desk staff or a verified claimant. */
+export interface ItemDetail extends PublicFoundItem {
+  viewer: Viewer;
+  photo_urls?: string[];
+  hidden_details?: HiddenDetail[];
+  landmark?: string | null;
+  finder_availability?: string | null;
+}
+
+export interface MatchWithItem extends MatchResult { item: PublicFoundItem; }
+
+export interface LostReportSummary {
+  id: string; summary: string; category: string;
+  status: 'open' | 'resolved' | 'closed'; created_at: string; match_count: number;
+}
+
+export interface ReturnDetails {
+  method: ReturnMethod;
+  desk_name?: string; desk_hours?: string;          // desk items
+  finder_name?: string; finder_availability?: string | null; // finder-held items (first name + last initial)
+}
+
+/** GET /api/claims/:id: fields depend on who is looking. */
+export interface ClaimDetail {
+  id: string; status: ClaimStatus; viewer: 'claimant' | 'finder' | 'desk';
+  item: PublicFoundItem;
+  created_at: string;
+  questions?: Question[];                 // claimant, while awaiting_answers
+  pickup_code?: string;                   // claimant, after likely_owner / approved
+  retry_after?: string | null;            // claimant, when rejected
+  return_details?: ReturnDetails;         // claimant after passing; finder/desk always
+  full_photo_urls?: string[];             // claimant after passing
+  score?: number; reason?: string; flags?: ClaimFlag[];        // finder / desk reviewing
+  answers?: { question: string; answer: string }[];          // finder / desk reviewing
+}
+
+export interface ChatMessage { id: string; mine: boolean; sender_name: string; body: string; created_at: string; }
+
+export interface MyItems {
+  found: (PublicFoundItem & { pending_claims: ClaimDetail[] })[];
+  lost: LostReportSummary[];
+  claims: ClaimDetail[];
+}
+
+export interface NotificationItem { id: string; text: string; link: string; created_at: string; read: boolean; }
+
+export interface DeskQueue { en_route: PublicFoundItem[]; at_desk: PublicFoundItem[]; reviews: ClaimDetail[]; }
