@@ -47,7 +47,7 @@ function Login() {
 
   return (
     <div className="pt-6">
-      <h1 className="text-3xl font-extrabold tracking-tight"><span className="text-cardinal">Find</span><span className="text-amber-500">On</span></h1>
+      <h1 className="text-3xl font-extrabold tracking-tight"><span className="text-cardinal">Find</span><span className="text-gold">On</span></h1>
       <p className="mt-2 text-neutral-600">USC&apos;s lost and found. Sign in with your USC email.</p>
 
       <div className="mt-8 space-y-4">

@@ -15,14 +15,17 @@ const tabs = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-neutral-50">
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur">
-        <Link href="/" className="text-lg font-extrabold tracking-tight">
-          <span className="text-cardinal">Find</span><span className="text-amber-500">On</span>
+    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-white">
+      <header className="sticky top-0 z-30 flex items-center justify-between bg-white/95 px-5 pb-3 pt-5 backdrop-blur">
+        <Link href="/" className="text-2xl font-extrabold tracking-tight">
+          <span className="text-cardinal">Find</span><span className="text-gold">On</span>
         </Link>
-        {USE_MOCKS && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900">Sample data</span>}
+        <span className="flex items-center gap-2">
+          {USE_MOCKS && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900">Sample data</span>}
+          <span className="text-[13px] font-medium text-neutral-500">USC Lost &amp; Found</span>
+        </span>
       </header>
-      <main className="flex-1 px-4 pb-28 pt-5">{children}</main>
+      <main className="flex-1 px-4 pb-28 pt-1">{children}</main>
       <Suspense fallback={null}><BottomNav /></Suspense>
     </div>
   );
@@ -32,13 +35,13 @@ function BottomNav() {
   const path = usePathname();
   if (path.startsWith('/login')) return null;
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto grid max-w-md grid-cols-3 border-t border-neutral-200 bg-white pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto grid max-w-md grid-cols-3 border-t border-neutral-100 bg-white pb-[env(safe-area-inset-bottom)]">
       {tabs.map((t) => {
         const active = t.href === '/'
           ? path === '/' || path.startsWith('/found') || path.startsWith('/lost') || path.startsWith('/items')
           : path.startsWith(t.href);
         return (
-          <Link key={t.href} href={t.href} className={`flex h-[3.25rem] items-center justify-center text-sm font-semibold ${active ? 'text-cardinal' : 'text-neutral-500'}`}>
+          <Link key={t.href} href={t.href} className={`flex h-[3.25rem] items-center justify-center text-sm ${active ? 'font-bold text-cardinal' : 'font-medium text-neutral-500'}`}>
             {t.label}
           </Link>
         );
