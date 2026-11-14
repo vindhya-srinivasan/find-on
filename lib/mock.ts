@@ -69,10 +69,11 @@ const db: ReturnType<typeof initialDb> = (() => {
 })();
 const save = () => { try { localStorage.setItem(STORE, JSON.stringify(db)); } catch { /* storage unavailable */ } };
 
+// Same wording works for any item: bottles, bags, jackets, keys. The real questions come from each item's own hidden details.
 const mockQuestions: Question[] = [
-  { id: 'q1', question: 'What brand is it, and roughly what size?', detail_indexes: [0] },
-  { id: 'q2', question: 'Describe any stickers, dents or marks on it.', detail_indexes: [1, 2] },
-  { id: 'q3', question: 'What kind of lid does it have, and what color?', detail_indexes: [3] },
+  { id: 'q1', question: 'What brand or make is it?', hint: 'e.g. Hydro Flask, Nike, Apple. Say “not sure” if you don’t know.', detail_indexes: [0] },
+  { id: 'q2', question: 'What makes it different from others like it?', hint: 'e.g. a sticker, a scratch, an engraving, a name on it', detail_indexes: [1, 2] },
+  { id: 'q3', question: 'What else do you remember about it?', hint: 'e.g. a case, a keychain, what was inside, what was attached', detail_indexes: [3] },
 ];
 
 const findItem = (id: string) => {

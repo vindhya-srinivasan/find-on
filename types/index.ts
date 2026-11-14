@@ -45,7 +45,12 @@ export interface PublicFoundItem {
 export interface MatchResult { candidate_id: string; score: number; public_reason: string; }
 
 // Sent to the browser: question text only, never the hidden details
-export interface Question { id: string; question: string; detail_indexes: number[]; }
+export interface Question {
+  id: string;
+  question: string;          // short and general, e.g. "What makes it different from others like it?"
+  hint?: string;             // examples shown under the answer box, e.g. "e.g. a sticker, a scratch, a name on it"
+  detail_indexes: number[];
+}
 
 export interface DetailVerdict { detail_index: number; verdict: Verdict; }
 export interface GradeResult { per_detail: DetailVerdict[]; reason: string; }

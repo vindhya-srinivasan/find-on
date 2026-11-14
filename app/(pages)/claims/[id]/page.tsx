@@ -60,7 +60,7 @@ function Quiz({ claim, onDone }: { claim: ClaimDetail; onDone: () => void }) {
 
   return (
     <div>
-      <PageTitle title="Prove it’s yours" subtitle={`Answer from memory about the ${claim.item.color} ${claim.item.category}. Describe what you remember; you only get one try.`} />
+      <PageTitle title="Prove it’s yours" subtitle={`Answer from memory about the ${claim.item.color} ${claim.item.category}. Describe what you remember. You get one try.`} />
       <div className="space-y-5">
         {questions.map((q, i) => (
           <div key={q.id}>
@@ -69,6 +69,7 @@ function Quiz({ claim, onDone }: { claim: ClaimDetail; onDone: () => void }) {
               rows={2} value={answers[q.id] ?? ''} onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
               placeholder="Type what you remember" className={`${inputClass} resize-none`}
             />
+            {q.hint && <p className="mt-1 text-xs text-neutral-500">{q.hint}</p>}
           </div>
         ))}
         <ErrorText error={error} />
