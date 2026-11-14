@@ -2,8 +2,9 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { USE_MOCKS } from '@/lib/mock';
+import { mockSignIn } from '@/components/useSession';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { Button, ErrorText, Label, Loading, inputClass } from '@/components/ui';
 
@@ -12,7 +13,6 @@ export default function LoginPage() {
 }
 
 function Login() {
-  const router = useRouter();
   const next = useSearchParams().get('next') || '/';
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -37,18 +37,20 @@ function Login() {
     try {
       if (USE_MOCKS) {
         if (code !== '123456') throw new Error('Wrong code. In sample-data mode the code is 123456.');
+        mockSignIn(email.trim());
       } else {
         const { error } = await supabaseBrowser().auth.verifyOtp({ email: email.trim().toLowerCase(), token: code, type: 'email' });
         if (error) throw error;
       }
-      router.replace(next);
+      // Full reload so the header and gate pick up the new session.
+      window.location.replace(next.startsWith('/') && !next.startsWith('//') ? next : '/');
     } catch (e) { setError((e as Error).message); setBusy(false); }
   }
 
   return (
     <div className="pt-6">
-      <h1 className="text-3xl font-extrabold tracking-tight"><span className="text-cardinal">Find</span><span className="text-gold">On</span></h1>
-      <p className="mt-2 text-neutral-600">USC&apos;s lost and found. Sign in with your USC email.</p>
+      <h1 className="text-[28px] font-bold tracking-tight">Sign in</h1>
+      <p className="mt-2 text-neutral-600">USC&apos;s lost and found. Use your USC email, no password needed.</p>
 
       <div className="mt-8 space-y-4">
         {!sent ? (

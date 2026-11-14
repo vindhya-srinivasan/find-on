@@ -11,7 +11,10 @@ import { EmptyState, ErrorText, Loading, PageTitle } from '@/components/ui';
 export default function NotificationsPage() {
   const [list, setList] = useState<NotificationItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { api.notifications().then(setList).catch((e) => setError(e.message)); }, []);
+  useEffect(() => {
+    api.notifications().then(setList).catch((e) => setError(e.message));
+    try { localStorage.setItem('findon-alerts-seen', String(Date.now())); } catch { /* storage blocked */ }
+  }, []);
 
   return (
     <div>
