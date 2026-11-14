@@ -47,27 +47,27 @@ function Login() {
 
   return (
     <div className="pt-6">
-      <h1 className="text-3xl font-extrabold tracking-tight"><span className="text-cardinal">Find</span><span className="text-amber-500">On</span></h1>
+      <h1 className="text-3xl font-extrabold tracking-tight"><span className="text-cardinal">Find</span><span className="text-gold">On</span></h1>
       <p className="mt-2 text-neutral-600">USC&apos;s lost and found. Sign in with your USC email.</p>
 
       <div className="mt-8 space-y-4">
         {!sent ? (
           <>
             <div>
-              <Label>USC email</Label>
-              <input type="email" inputMode="email" autoComplete="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ttrojan@usc.edu" className={inputClass} />
-              {email && !validEmail && <p className="mt-1 text-xs text-neutral-500">Use your @usc.edu address.</p>}
+              <Label htmlFor="email">USC email</Label>
+              <input id="email" type="email" inputMode="email" autoComplete="email" enterKeyHint="send" aria-invalid={!!email && !validEmail} aria-describedby="email-help" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ttrojan@usc.edu" className={inputClass} />
+              <p id="email-help" className="mt-1 text-sm text-neutral-600">{email && !validEmail ? 'Use your @usc.edu address.' : 'Only @usc.edu addresses can sign in.'}</p>
             </div>
             <Button className="w-full text-base" disabled={!validEmail} loading={busy} onClick={sendCode}>Send me a code</Button>
           </>
         ) : (
           <>
             <div>
-              <Label hint={`We sent a 6-digit code to ${email}.`}>Enter the code</Label>
-              <input inputMode="numeric" autoComplete="one-time-code" autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" className={`${inputClass} text-center text-2xl tracking-[0.4em]`} />
+              <Label htmlFor="code" hint={`We sent a 6-digit code to ${email}.`}>Enter the code</Label>
+              <input id="code" inputMode="numeric" autoComplete="one-time-code" enterKeyHint="go" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" className={`${inputClass} text-center text-2xl tracking-[0.4em]`} />
             </div>
             <Button className="w-full text-base" disabled={code.length !== 6} loading={busy} onClick={verify}>Sign in</Button>
-            <button type="button" onClick={() => { setSent(false); setCode(''); }} className="w-full text-sm text-neutral-600">Use a different email</button>
+            <button type="button" onClick={() => { setSent(false); setCode(''); }} className="min-h-11 w-full rounded-xl text-sm font-medium text-neutral-700">Use a different email</button>
           </>
         )}
         <ErrorText error={error} />

@@ -23,10 +23,10 @@ export function PhotoInput({ files, onChange, max = 3, required = true }:
       <div className="grid grid-cols-3 gap-2">
         {urls.map((u, i) => (
           <div key={u} className="relative aspect-square overflow-hidden rounded-xl bg-neutral-100">
-            <img src={u} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
+            <img src={u} alt={`Your photo ${i + 1}`} className="h-full w-full object-cover" />
             <button
-              type="button" onClick={() => onChange(files.filter((_, j) => j !== i))}
-              className="absolute right-1 top-1 rounded-full bg-black/60 px-2 py-0.5 text-xs text-white"
+              type="button" aria-label={`Remove photo ${i + 1}`} onClick={() => onChange(files.filter((_, j) => j !== i))}
+              className="absolute inset-x-1.5 bottom-1.5 min-h-10 rounded-xl bg-black/70 text-sm font-semibold text-white"
             >
               Remove
             </button>
@@ -35,14 +35,14 @@ export function PhotoInput({ files, onChange, max = 3, required = true }:
         {files.length < max && (
           <button
             type="button" onClick={() => inputRef.current?.click()}
-            className="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 text-sm text-neutral-600 hover:border-cardinal hover:text-cardinal"
+            className="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-neutral-400 text-sm font-medium text-neutral-700 hover:border-cardinal hover:text-cardinal"
           >
             <span className="text-2xl leading-none">+</span>
             <span className="mt-1">{files.length ? 'Add photo' : required ? 'Take photo' : 'Add photo'}</span>
           </button>
         )}
       </div>
-      <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={(e) => add(e.target.files)} />
+      <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple aria-label="Add photos" className="hidden" onChange={(e) => add(e.target.files)} />
     </div>
   );
 }

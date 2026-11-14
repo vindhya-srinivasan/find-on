@@ -6,8 +6,10 @@ import { useParams } from 'next/navigation';
 import type { ChatMessage, ClaimDetail } from '@/types';
 import { api } from '@/lib/mock';
 import { FlowBottomSpace, PrimaryAction, StickyAction } from '@/components/Flow';
-import { Button, Card, ErrorText, Label, LinkButton, Loading, PageTitle, inputClass } from '@/components/ui';
-import { timeAgo } from '@/components/format';
+import { Button, Card, ErrorText, LinkButton, Loading, PageTitle, inputClass } from '@/components/ui';
+import { shortDate, timeAgo } from '@/components/format';
+import { Thumb } from '@/components/Thumb';
+import { useBuildings } from '@/components/useBuildings';
 
 export default function ClaimPageRoute() {
   return <Suspense fallback={<Loading />}><ClaimPage /></Suspense>;
@@ -40,6 +42,7 @@ function ClaimPage() {
 }
 
 function Quiz({ claim, onDone }: { claim: ClaimDetail; onDone: () => void }) {
+  const { nameOf } = useBuildings();
   const questions = claim.questions ?? [];
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [sending, setSending] = useState(false);
@@ -59,21 +62,46 @@ function Quiz({ claim, onDone }: { claim: ClaimDetail; onDone: () => void }) {
   }
 
   return (
-    <div>
-      <PageTitle title="Prove it’s yours" subtitle={`Answer from memory about the ${claim.item.color} ${claim.item.category}. Describe what you remember. You get one try.`} />
-      <div className="space-y-5">
-        {questions.map((q, i) => (
-          <div key={q.id}>
-            <Label>{i + 1}. {q.question}</Label>
-            <textarea
-              rows={2} value={answers[q.id] ?? ''} onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
-              placeholder="Type what you remember" className={`${inputClass} resize-none`}
-            />
-            {q.hint && <p className="mt-1 text-xs text-neutral-500">{q.hint}</p>}
-          </div>
-        ))}
-        <ErrorText error={error} />
+    <div className="flex flex-col gap-5">
+      <button type="button" onClick={() => history.back()} className="-ml-2 flex min-h-11 items-center gap-1 self-start rounded-lg px-2 text-[15px] font-semibold text-neutral-900 hover:bg-neutral-100">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-7 7 7 7" /></svg>
+        Claim item
+      </button>
+
+      <div className="flex items-center gap-3">
+        <Thumb src={claim.item.blurred_thumb_url} size="sm" label={claim.item.category} />
+        <div>
+          <p className="text-[17px] font-bold capitalize">{claim.item.color} {claim.item.category}</p>
+          <p className="text-[13px] text-neutral-600">Found at {nameOf(claim.item.found_building_id)} · {shortDate(claim.item.found_date)}</p>
+        </div>
       </div>
+
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Prove it&apos;s yours</h1>
+        <p className="mt-1.5 text-sm text-neutral-600">Answer from memory. You get one try, so describe what you&apos;re sure of.</p>
+      </div>
+
+      {questions.map((q, i) => (
+        <div key={q.id} className="flex flex-col gap-2">
+          <label htmlFor={`a-${q.id}`} className="text-[15px] font-semibold">
+            <span className="text-cardinal">{i + 1}.</span> {q.question}
+          </label>
+          <textarea
+            id={`a-${q.id}`} rows={2} value={answers[q.id] ?? ''}
+            onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+            placeholder="Type your answer" aria-describedby={q.hint ? `h-${q.id}` : undefined}
+            className={`${inputClass} resize-none [field-sizing:content] min-h-20`}
+          />
+          {q.hint && <p id={`h-${q.id}`} className="text-sm text-neutral-600">{q.hint}</p>}
+        </div>
+      ))}
+
+      <div className="flex items-start gap-2.5 rounded-[14px] bg-[#FAF7F2] px-3.5 py-3">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7A6A55" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+        <p className="text-[13px] text-[#5A4E3E]">The photo stays blurred until you pass. Your answers are only used to confirm it&apos;s yours.</p>
+      </div>
+
+      <ErrorText error={error} />
       <FlowBottomSpace />
       <StickyAction>
         <PrimaryAction disabled={!complete} loading={sending} onClick={submit}>{sending ? 'Checking…' : 'Submit answers'}</PrimaryAction>
@@ -109,7 +137,7 @@ function Verified({ claim }: { claim: ClaimDetail }) {
           <Card>
             <p className="font-semibold">Found by {r?.finder_name}</p>
             {r?.finder_availability && <p className="text-sm text-neutral-600">Usually free: {r.finder_availability}</p>}
-            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Meet in a public, staffed place during the day, like a building lobby or the DPS office.</p>
+            <p className="mt-2 rounded-xl bg-cream px-3 py-2 text-sm text-[#5A4E3E]">Meet in a public, staffed place during the day, like a building lobby or the DPS office.</p>
           </Card>
           <Chat claimId={claim.id} />
         </>
@@ -137,19 +165,19 @@ function Chat({ claimId }: { claimId: string }) {
   return (
     <Card>
       <p className="mb-3 font-semibold">Plan the handoff</p>
-      <div className="max-h-64 space-y-2 overflow-y-auto">
-        {msgs.length === 0 && <p className="text-sm text-neutral-500">Say hi and suggest a time and place.</p>}
+      <div className="max-h-64 space-y-2 overflow-y-auto overscroll-contain" aria-live="polite" aria-label="Messages">
+        {msgs.length === 0 && <p className="text-sm text-neutral-600">Say hi and suggest a time and place.</p>}
         {msgs.map((m) => (
           <div key={m.id} className={`flex ${m.mine ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${m.mine ? 'bg-cardinal text-white' : 'bg-neutral-100'}`}>
               {m.body}
-              <div className={`mt-0.5 text-[10px] ${m.mine ? 'text-red-100' : 'text-neutral-500'}`}>{m.mine ? 'You' : m.sender_name} · {timeAgo(m.created_at)}</div>
+              <div className={`mt-0.5 text-[11px] ${m.mine ? 'text-red-100' : 'text-neutral-600'}`}>{m.mine ? 'You' : m.sender_name} · {timeAgo(m.created_at)}</div>
             </div>
           </div>
         ))}
       </div>
       <div className="mt-3 flex gap-2">
-        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder="Message" className={inputClass} />
+        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} aria-label="Message the finder" autoComplete="off" enterKeyHint="send" placeholder="Message" className={inputClass} />
         <Button onClick={send} disabled={!text.trim()}>Send</Button>
       </div>
     </Card>
