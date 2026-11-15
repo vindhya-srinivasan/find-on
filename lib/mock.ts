@@ -7,6 +7,7 @@ import type {
   Building, ChatMessage, ClaimDetail, DeskQueue, ItemDetail, LostReportSummary, MatchWithItem,
   MyItems, NotificationItem, ParsedLostReport, PhotoAnalysis, PublicFoundItem, Question, ReturnMethod,
 } from '@/types';
+import { deskOf } from '@/components/desks';
 
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
 
@@ -134,7 +135,7 @@ export const api = {
       public_title: a.public_title, category: a.category, color: a.color,
       found_building_id: String(form.get('buildingId')), found_date: today(), blurred_thumb_url: '',
       status: method === 'desk' ? 'en_route_to_desk' : 'with_finder', return_method: method,
-      held_at_desk_id: method === 'desk' ? 'dps' : null,
+      held_at_desk_id: method === 'desk' ? String(form.get('deskId') || 'dps') : null,
     };
     db.items.unshift(item);
     save();
@@ -204,7 +205,7 @@ export const api = {
       c.status = 'likely_owner';
       c.pickup_code = String(Math.floor(100000 + Math.random() * 900000));
       c.return_details = c.item.return_method === 'desk'
-        ? { method: 'desk', desk_name: 'DPS Lost & Found', desk_hours: 'Mon–Fri 9 AM – 5 PM' }
+        ? { method: 'desk', desk_name: deskOf(c.item.held_at_desk_id).name, desk_hours: deskOf(c.item.held_at_desk_id).hours_text }
         : { method: 'finder', finder_name: 'Jordan K.', finder_availability: 'Weekdays 10–4' };
       notify('Your claim passed verification. Your pickup code is ready.', `/claims/${claimId}`);
     } else if (text.includes('review')) {
@@ -236,7 +237,7 @@ export const api = {
     if (!USE_MOCKS) return postJson(`/api/items/${encodeURIComponent(code.trim().toUpperCase())}/receive`, {});
     const it = findItem(code.trim().toUpperCase());
     it.status = 'at_desk';
-    it.held_at_desk_id = 'dps';
+    it.held_at_desk_id ??= 'dps';
     save();
     return { item: it };
   },

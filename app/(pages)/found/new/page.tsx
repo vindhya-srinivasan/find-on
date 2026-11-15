@@ -12,6 +12,7 @@ import { LocationField } from '@/components/LocationField';
 import { LandmarkChips } from '@/components/LandmarkChips';
 import { ChoiceCard, FlowBottomSpace, PrimaryAction, StepHeader, StickyAction } from '@/components/Flow';
 import { Badge, Card, ErrorText, Label, LinkButton, Spinner, inputClass } from '@/components/ui';
+import { DEFAULT_DESK, DESKS, DESK_BLURB, deskName } from '@/components/desks';
 
 const TOTAL = 4;
 
@@ -24,6 +25,7 @@ export default function FoundNew() {
   const [analysis, setAnalysis] = useState<PhotoAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [method, setMethod] = useState<ReturnMethod | null>(null);
+  const [deskId, setDeskId] = useState(DEFAULT_DESK);
   const [availability, setAvailability] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +43,7 @@ export default function FoundNew() {
       form.append('landmark', landmark);
       const a = await api.analyzeFound(form);
       setAnalysis(a);
-      if (a.is_valuable) setMethod('desk');
+      if (a.is_valuable) { setMethod('desk'); setDeskId(DEFAULT_DESK); }
     } catch {
       // AI failed: let the finder fill the basics in by hand.
       setAnalysis({ is_valid_item: true, reject_reason: null, category: '', color: '', brand: null, public_title: '', hidden_details: [], verifiability: 'low', is_valuable: false });
@@ -67,6 +69,7 @@ export default function FoundNew() {
       form.append('foundAt', new Date().toISOString());
       form.append('analysis', JSON.stringify(final));
       form.append('returnMethod', method);
+      if (method === 'desk') form.append('deskId', deskId);
       form.append('availability', method === 'finder' ? availability : '');
       const { item } = await api.submitFound(form);
       setDone(item);
@@ -139,12 +142,15 @@ export default function FoundNew() {
         <>
           <StepHeader step={4} total={TOTAL} title="What will you do with it?" help="Either way, the owner has to prove it's theirs first." onBack={() => setStep(3)} />
           <div className="space-y-3">
-            <ChoiceCard
-              selected={method === 'desk'} onSelect={() => setMethod('desk')}
-              title="Drop it at DPS Lost & Found"
-              body="Easiest for you. DPS hands it over once the owner is verified."
-              badge={analysis?.is_valuable ? <Badge tone="gold">Recommended for valuables</Badge> : undefined}
-            />
+            {DESKS.map((d) => (
+              <ChoiceCard
+                key={d.id}
+                selected={method === 'desk' && deskId === d.id} onSelect={() => { setMethod('desk'); setDeskId(d.id); }}
+                title={`Drop it at ${d.name}`}
+                body={[DESK_BLURB[d.id] ?? 'The desk hands it over once the owner is verified.', d.hours_text].filter(Boolean).join(' ')}
+                badge={analysis?.is_valuable && d.id === DEFAULT_DESK ? <Badge tone="gold">Recommended for valuables</Badge> : undefined}
+              />
+            ))}
             <ChoiceCard
               selected={method === 'finder'} onSelect={() => setMethod('finder')}
               title="Keep it until the owner is found"
@@ -233,7 +239,7 @@ function Done({ item }: { item: PublicFoundItem }) {
       <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-2xl text-green-700">✓</div>
       <h1 className="text-2xl font-bold">Thanks, it&apos;s posted</h1>
       <p className="mx-auto mt-2 max-w-xs text-sm text-neutral-600">
-        {desk ? 'Drop it at DPS Lost & Found and show this code at the desk.' : 'We’ll alert you when the owner is verified. Hold on to it until then.'}
+        {desk ? `Drop it at ${deskName(item.held_at_desk_id)} and show this code at the desk.` : 'We’ll alert you when the owner is verified. Hold on to it until then.'}
       </p>
       <Card className="mx-auto mt-6 max-w-xs">
         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Item code</p>
