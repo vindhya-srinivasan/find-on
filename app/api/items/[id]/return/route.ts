@@ -44,6 +44,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     if (c.error) return FAIL();
     if (!c.data) return error("That code doesn't match.", 400);
     const claim = c.data;
+    if (claim.claimant_id === me.id) return error("You can't release your own claim.", 403); // the releaser must be a different human
 
     // Exactly-once gate: only one request flips the item to returned (no 0002 function, approved decision 5).
     const u = await db.from('found_items').update({ status: 'returned' }).eq('id', item.id).eq('status', expected).select('id');
