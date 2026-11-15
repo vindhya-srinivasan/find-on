@@ -29,7 +29,7 @@ export function StepHeader({ step, total, title, help, onBack }:
 /** The single main action, pinned above the bottom nav so it's always in reach. */
 export function StickyAction({ children, secondary }: { children: ReactNode; secondary?: ReactNode }) {
   return (
-    <div className="fixed inset-x-0 bottom-[calc(3.25rem+env(safe-area-inset-bottom))] z-20 mx-auto max-w-md border-t border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur">
+    <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-neutral-100 bg-white/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-md">
       <div className="flex flex-col gap-2">{children}{secondary}</div>
     </div>
   );

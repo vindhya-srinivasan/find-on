@@ -63,11 +63,6 @@ function Quiz({ claim, onDone }: { claim: ClaimDetail; onDone: () => void }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <button type="button" onClick={() => history.back()} className="-ml-2 flex min-h-11 items-center gap-1 self-start rounded-lg px-2 text-[15px] font-semibold text-neutral-900 hover:bg-neutral-100">
-        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-7 7 7 7" /></svg>
-        Claim item
-      </button>
-
       <div className="flex items-center gap-3">
         <Thumb src={claim.item.blurred_thumb_url} size="sm" label={claim.item.category} />
         <div>
