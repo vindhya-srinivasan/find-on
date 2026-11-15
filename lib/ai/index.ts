@@ -69,7 +69,8 @@ const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 function publicTitle(color: string, category: string, building: string): string {
   const c = color.trim().toLowerCase();
-  const cat = category.trim().toLowerCase();
+  const raw = category.trim().toLowerCase();
+  const cat = !raw || raw === 'other' ? 'item' : raw;
   return `${cap(c && c !== 'unknown' ? `${c} ${cat}` : cat)} · ${building}`;
 }
 
@@ -99,14 +100,17 @@ Return:
   * food, trash, perishables → "FindOn is for belongings, not food or trash."
   * weapons, drugs or anything dangerous → tell them not to post it and to contact USC DPS directly at (213) 740-4321.
   When valid, null.
-- category: short and generic, lowercase. Prefer one of: ${CATEGORIES.join(', ')}.
+- category: short and generic, lowercase. Use one of these if it fits: ${CATEGORIES.join(', ')}. If none fits, use a short generic noun (e.g. "remote control", "speaker"); never "other" or "item".
 - color: the single main color, lowercase (e.g. "black", "grey", "navy blue").
 - brand: brand or model if visible or clearly recognizable, else null.
 - hidden_details: 2–6 specific, checkable facts an owner would know, each with a weight:
   * 3 (high): stickers, engravings, names or initials, writing, unique damage (dents, cracks, stains), keychains/charms, contents of a bag or wallet, distinctive case.
   * 2 (medium): brand, model, size/capacity, lid or case type, secondary color, material pattern.
   * 1 (low): generic material or common features.
+  Weight 3 only for things unique to THIS unit (added, personal, worn or damaged). Features every unit of that model has (factory buttons, standard logos, stock colors) are weight 2 at most, even if they look distinctive.
   Include the brand as its own weight-2 detail when known. Describe each detail concretely ("pink flower sticker near the base", not "has a sticker").
+  Only quote text, numbers or initials you can read with certainty; if any character is unclear, describe it generally ("a printed ID number", "embossed initials") so a real owner is never marked wrong by a misreading.
+  Privacy: never describe a person's face, body, gender or other appearance (e.g. on an ID photo, say only "has a portrait photo"). If a screen is on, do not record names, messages, notifications or the time shown on it; describe only lasting things like the wallpaper or case.
   For ID cards, credit/debit cards, passports and documents: names, numbers and photos printed on them go ONLY here (and never repeat full card or ID numbers — last 4 digits at most).
 - is_valuable: true for wallet, ID card, keys, phone, laptop, tablet, credit/debit card, passport.
 
@@ -178,7 +182,7 @@ const LostSchema = z.object({
 const LOST_SYSTEM = `You turn a USC student's plain-language description of something they lost into structured fields for FindOn, a campus lost-and-found app.
 
 Return:
-- category: short and generic, lowercase. Prefer one of: ${CATEGORIES.join(', ')}.
+- category: short and generic, lowercase. Use one of these if it fits: ${CATEGORIES.join(', ')}. If none fits, use a short generic noun (e.g. "remote control", "speaker"); never "other" or "item".
 - color: main color, lowercase, or null if not given.
 - brand: brand or model if given, else null.
 - marks: every distinguishing detail they mention (stickers, engravings, damage, case, contents, accessories), each a short phrase. Empty array if none.
