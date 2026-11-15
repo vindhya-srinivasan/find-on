@@ -16,6 +16,7 @@ export async function POST(req: Request) {
   try {
     const me = await requireUser(req, { write: true });
     if (me instanceof Response) return me;
+    if (me.role === 'desk') return error("Desk accounts can't claim items.", 403);
 
     let raw: unknown;
     try {
