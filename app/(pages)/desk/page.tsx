@@ -6,6 +6,8 @@ import type { ClaimDetail, DeskQueue, PublicFoundItem } from '@/types';
 import { api } from '@/lib/mock';
 import { useBuildings } from '@/components/useBuildings';
 import { shortDate } from '@/components/format';
+import { deskName } from '@/components/desks';
+import { ReviewExtras } from '@/components/ReviewExtras';
 import { Button, Card, EmptyState, ErrorText, Loading, PageTitle, inputClass } from '@/components/ui';
 
 export default function DeskPage() {
@@ -19,7 +21,7 @@ export default function DeskPage() {
 
   return (
     <div className="space-y-8">
-      <PageTitle title="Desk" subtitle="DPS Lost & Found" />
+      <PageTitle title="Desk" subtitle={deskName(q.desk_id)} />
       <Receive onDone={load} expected={q.en_route} />
 
       <section>
@@ -70,10 +72,14 @@ function Receive({ onDone, expected }: { onDone: () => void; expected: PublicFou
 
 function ReviewCard({ claim, onDone }: { claim: ClaimDetail; onDone: () => void }) {
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
+  const [full, setFull] = useState<ClaimDetail | null>(null);
+  // shortcut: one GET per card for the photos; add them to the queue response if queues grow
+  useEffect(() => { api.claim(claim.id).then(setFull).catch(() => {}); }, [claim.id]);
   async function decide(d: 'approve' | 'reject') { setBusy(d); await api.reviewClaim(claim.id, d).catch(() => {}); onDone(); }
   return (
     <Card className="space-y-3">
       <p className="font-medium capitalize">{claim.item.color} {claim.item.category} · {claim.item.item_code}</p>
+      <ReviewExtras claim={{ ...claim, ...full }} />
       {typeof claim.score === 'number' && <p className="text-sm"><b>Score {claim.score}/100.</b> {claim.reason}</p>}
       {claim.answers?.map((a, i) => (
         <div key={i} className="rounded-xl bg-neutral-50 px-3 py-2 text-sm">

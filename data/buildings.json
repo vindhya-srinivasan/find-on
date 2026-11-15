@@ -23,5 +23,7 @@
   {"id": "jff", "name": "Fertitta Hall, Marshall (JFF)", "lat": 34.018693, "lng": -118.282569, "type": "academic"},
   {"id": "asc", "name": "Annenberg School for Communication (ASC)", "lat": 34.02199, "lng": -118.286117, "type": "academic"},
   {"id": "ann", "name": "Wallis Annenberg Hall (ANN)", "lat": 34.020801, "lng": -118.287047, "type": "academic"},
-  {"id": "sca", "name": "School of Cinematic Arts (SCA)", "lat": 34.023416, "lng": -118.286439, "type": "academic"}
+  {"id": "sca", "name": "School of Cinematic Arts (SCA)", "lat": 34.023416, "lng": -118.286439, "type": "academic"},
+  {"id": "lvl", "name": "Leavey Library", "lat": 34.0217, "lng": -118.2829, "type": "library"},
+  {"id": "dps", "name": "DPS Office", "lat": 34.0247, "lng": -118.2833, "type": "desk"}
 ]

@@ -94,6 +94,8 @@ export interface ItemDetail extends PublicFoundItem {
   hidden_details?: HiddenDetail[];
   landmark?: string | null;
   finder_availability?: string | null;
+  found_at?: string;
+  pending_claims?: ClaimDetail[];         // finder of a finder-held item only: its needs_review claims
 }
 
 export interface MatchWithItem extends MatchResult { item: PublicFoundItem; }
@@ -121,6 +123,9 @@ export interface ClaimDetail {
   full_photo_urls?: string[];             // claimant after passing
   score?: number; reason?: string; flags?: ClaimFlag[];        // finder / desk reviewing
   answers?: { question: string; answer: string }[];          // finder / desk reviewing
+  claimant_name?: string;                 // desk always; finder only after the claim passes (first name + last initial)
+  proof_photo_url?: string; owner_photo_url?: string;        // finder / desk while needs_review; signed, 10 min
+  hidden_details?: HiddenDetail[]; landmark?: string | null; found_at?: string; // claimant after passing
 }
 
 export interface ChatMessage { id: string; mine: boolean; sender_name: string; body: string; created_at: string; }
@@ -133,4 +138,7 @@ export interface MyItems {
 
 export interface NotificationItem { id: string; text: string; link: string; created_at: string; read: boolean; }
 
-export interface DeskQueue { en_route: PublicFoundItem[]; at_desk: PublicFoundItem[]; reviews: ClaimDetail[]; }
+export interface DeskQueue {
+  en_route: PublicFoundItem[]; at_desk: PublicFoundItem[]; reviews: ClaimDetail[];
+  desk_id?: string | null; // caller's own desk (desk staff only)
+}

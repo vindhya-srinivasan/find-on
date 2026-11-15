@@ -404,7 +404,7 @@ async function main() {
     const e1Row = await service.from('found_items').select('held_at_desk_id').eq('id', E1.id).maybeSingle();
     const stamped = e1Row.data?.held_at_desk_id ?? null;
     const q1 = await call('GET', '/api/desk/queue', D);
-    check('10 D desk queue -> 200 keys en_route, at_desk, reviews', q1.status === 200 && sameKeys(q1.body, ['at_desk', 'en_route', 'reviews']), short(q1));
+    check('10 D desk queue -> 200 keys en_route, at_desk, reviews, desk_id', q1.status === 200 && sameKeys(q1.body, ['at_desk', 'desk_id', 'en_route', 'reviews']), short(q1));
     check('10 finder-held H not in desk queue', !inQueue(q1, H.id), short(q1));
     if (stamped && stamped !== DESK) {
       check("10 E1 (another desk's) not in D's queue", !inQueue(q1, E1.id), short(q1));
@@ -435,7 +435,7 @@ async function main() {
       check('11 setup force needs_review', !f.error, f.error?.message);
     }
     const q3 = await call('GET', '/api/desk/queue', D);
-    check('11 D desk queue -> 200 keys en_route, at_desk, reviews', q3.status === 200 && sameKeys(q3.body, ['at_desk', 'en_route', 'reviews']), short(q3));
+    check('11 D desk queue -> 200 keys en_route, at_desk, reviews, desk_id', q3.status === 200 && sameKeys(q3.body, ['at_desk', 'desk_id', 'en_route', 'reviews']), short(q3));
     check('11 E2 in at_desk', arr(q3.body?.at_desk).some((i) => i?.id === E2.id), short(q3));
     const rq = arr(q3.body?.reviews).find((c) => c?.id === deskClaim);
     check("11 reviews has A's E2 claim: desk view, answers, flags, 'Alice O.'",

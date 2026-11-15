@@ -82,8 +82,16 @@ const findItem = (id: string) => {
   if (!it) throw new ApiError('Item not found', 404);
   return it;
 };
+// A claim on item-1 waiting for its finder's decision. Lives outside db so it shows up even with old saved mock data. No claimant_name: the server only sends it to a finder after the claim passes.
+const mockReview: ClaimDetail = {
+  id: 'claim-review', status: 'needs_review', viewer: 'finder', item: initialDb().items[0], created_at: new Date().toISOString(),
+  score: 58, reason: 'Brand and lid correct; no distinctive detail mentioned.', flags: [],
+  answers: [{ question: 'What makes it different from others like it?', answer: 'Not sure, maybe a scratch?' }],
+  proof_photo_url: '/icon-192.png', owner_photo_url: '/icon-512.png',
+};
+
 const findClaim = (id: string) => {
-  const c = db.claims.find((x) => x.id === id);
+  const c = db.claims.find((x) => x.id === id) ?? (id === mockReview.id ? mockReview : undefined);
   if (!c) throw new ApiError('Claim not found', 404);
   return c;
 };
@@ -278,7 +286,7 @@ export const api = {
   async myItems(): Promise<MyItems> {
     if (!USE_MOCKS) return call('/api/me/items');
     return {
-      found: db.items.slice(0, 1).map((i) => ({ ...i, pending_claims: [] })),
+      found: db.items.slice(0, 1).map((i) => ({ ...i, pending_claims: i.id === mockReview.item.id ? [mockReview] : [] })),
       lost: db.lost,
       claims: db.claims,
     };
@@ -292,10 +300,12 @@ export const api = {
   async deskQueue(): Promise<DeskQueue> {
     if (!USE_MOCKS) return call('/api/desk/queue');
     return {
+      desk_id: 'dps',
       en_route: db.items.filter((i) => i.status === 'en_route_to_desk'),
       at_desk: db.items.filter((i) => i.status === 'at_desk'),
       reviews: db.claims.filter((c) => c.status === 'needs_review').map((c) => ({
         ...c, viewer: 'desk', score: 55, reason: 'Brand and lid correct; no distinctive detail mentioned.',
+        claimant_name: 'Alex R.', proof_photo_url: '/icon-192.png', owner_photo_url: '/icon-512.png',
         answers: [{ question: 'Describe any stickers, dents or marks on it.', answer: 'Not sure, maybe a scratch?' }],
       })),
     };

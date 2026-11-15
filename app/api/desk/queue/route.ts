@@ -45,7 +45,7 @@ export async function GET(req: Request) {
     const map = await publicItemsOf(items);
     const reviews = await reviewerClaimList('desk', claims, map);
     const byStatus = (s: FoundItemRow['status']) => items.filter((i) => i.status === s).map((i) => map.get(i.id)!);
-    const body: DeskQueue = { en_route: byStatus('en_route_to_desk'), at_desk: byStatus('at_desk'), reviews };
+    const body: DeskQueue = { en_route: byStatus('en_route_to_desk'), at_desk: byStatus('at_desk'), reviews, desk_id: me.desk_id };
     return json(body);
   } catch {
     return FAIL();
