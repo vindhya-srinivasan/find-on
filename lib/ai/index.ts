@@ -109,7 +109,7 @@ Return:
   * 3 (high): stickers, engravings, names or initials, writing, unique damage (dents, cracks, stains), keychains/charms, contents of a bag or wallet, distinctive case.
   * 2 (medium): brand, model, size/capacity, lid or case type, secondary color, material pattern.
   * 1 (low): generic material or common features.
-  Weight 3 only for things unique to THIS unit (added, personal, worn or damaged). Features every unit of that model has (factory buttons, standard logos, stock colors) are weight 2 at most, even if they look distinctive.
+  Weight 3 only for things unique to THIS unit (added, personal, or a specific located mark like "dent near the base on one side" or "crack across the lid"). General wear that most used items have (light scratches, scuffs, smudges, water spots) is weight 1. Features every unit of that model has (factory buttons, standard logos, stock colors) are weight 2 at most, even if they look distinctive.
   Include the brand as its own weight-2 detail when known. Describe each detail concretely ("pink flower sticker near the base", not "has a sticker").
   Only quote text, numbers or initials you can read with certainty; if any character is unclear, describe it generally ("a printed ID number", "embossed initials") so a real owner is never marked wrong by a misreading. Text you cannot read, and standard factory printing (model and size numbers inside glasses arms, serial or regulatory labels, care tags), is weight 1: every unit has it, so anyone could claim it.
   Privacy: never describe a person's face, body, gender or other appearance (e.g. on an ID photo, say only "has a portrait photo"). If a screen is on, do not record anything displayed on it (names, messages, notifications, time, lock or passcode screens); describe only lasting things like the case, band or damage.
@@ -464,6 +464,7 @@ const GRADE_SYSTEM = `You grade a claimant's answers for FindOn, a USC lost-and-
 For EACH detail index listed as covered, return exactly one verdict, judged by meaning, not exact words ("rose decal" = "pink flower sticker"; "silver" ≈ "grey"):
 - match: the claimant correctly describes the distinctive core of this detail (any of their answers or their earlier lost report may count). Leaving out minor attributes (exact shade, exact position, exact size) is still a match: "Fight On sticker" matches "white Fight On sticker near the bottom".
 - partial: they get only a generic part of it, missing what makes it distinctive ("it has a straw" for "green straw lid"; "a sticker" for "pink flower sticker").
+  If an answer confidently describes things the item clearly does not have (stickers on an item with none, a different brand, damage it doesn't show), treat that whole answer as unreliable: none of its details can be more than partial.
   If the true detail is itself vague (it doesn't say what the text, logo or design is), a claimant who adds specific content (a brand, model number, words) can earn at most partial: those specifics can't be confirmed, and inventing them is what a guesser does.
 - not_mentioned: they don't address it, say they don't know, or give something too generic to tell ("normal lid"). Hedged or list-style guesses that don't commit ("maybe some initials, or no text at all"; "a sticker or a scratch or a keychain") are not_mentioned even if one option happens to be right: listing possibilities is what a guesser does.
 - contradicts: they confidently state something specific that conflicts with it ("blue screw-top lid" for "green straw lid"; "no stickers" when there is one).
@@ -489,11 +490,13 @@ export async function gradeAnswers(input: {
     .map((q) => `Question ${q.id}: ${q.question}\nAnswer: ${untrusted(`answer_${q.id}`, (answerBy.get(q.id) ?? '').slice(0, 1000) || '(no answer)')}`)
     .join('\n\n');
 
+  const others = input.hidden.map((d, i) => ({ d, i })).filter(({ i }) => !covered.includes(i)).map(({ d, i }) => `${i}. ${d.detail}`).join('\n');
   const r = await callJson({
     task: 'gradeAnswers',
     system: GRADE_SYSTEM,
     content:
       `Covered hidden details (true facts about the item):\n${details}\n\n` +
+      (others ? `Other true facts about the item (context only, give them no verdict):\n${others}\n\n` : '') +
       `Claimant's answers:\n${qa}\n\n` +
       `Claimant's earlier lost report:\n${untrusted('lost_report', input.lostReportText.slice(0, 2000) || '(none)')}`,
     schema: GradeSchema,
