@@ -27,6 +27,11 @@ const STOPWORDS = new Set([
   'most', 'item', 'it\'s', 'thing', 'looks', 'appears', 'visible', 'around', 'near', 'side', 'front', 'back',
   'color', 'colour', 'other', 'describe', 'anything', 'something', 'make', 'model', 'brand', 'size', 'does',
   'your', 'yours', 'remember', 'details', 'detail', 'about', 'tell', 'were', 'been', 'only', 'each', 'both',
+  // Words that name the KIND of detail, not its content ("Describe any text" doesn't reveal "EK").
+  'text', 'writing', 'written', 'printed', 'print', 'initials', 'letters', 'lettering', 'words', 'name', 'names',
+  'logo', 'logos', 'symbol', 'marking', 'markings', 'mark', 'marks', 'design', 'pattern', 'finish', 'texture',
+  'material', 'materials', 'surface', 'exterior', 'outside', 'inside', 'contents', 'attached', 'part', 'parts',
+  'feature', 'features', 'version', 'type', 'style', 'shape', 'damage', 'wear', 'condition',
 ]);
 
 function words4(text: string): Set<string> {
@@ -55,7 +60,8 @@ function publicTitle(color: string, category: string, building: string): string 
   return `${cap(c && c !== 'unknown' ? `${c} ${cat}` : cat)} · ${building}`;
 }
 
-const ALLOWED_MEDIA = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
+// HEIC/HEIF: iPhone photos the browser couldn't convert to JPEG (Gemini reads them natively).
+const ALLOWED_MEDIA = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'] as const;
 type ImageMedia = (typeof ALLOWED_MEDIA)[number];
 
 // ---------- Task 1: analyze found photo ----------
@@ -105,7 +111,7 @@ export async function analyzePhoto(input: {
   const content: AiPart[] = images.map((img) => {
     const media = img.mediaType.toLowerCase().replace('image/jpg', 'image/jpeg');
     if (!ALLOWED_MEDIA.includes(media as ImageMedia)) {
-      throw new AiError(`Unsupported image type ${img.mediaType} (use JPEG, PNG, GIF or WebP)`, 'analyzePhoto');
+      throw new AiError(`Unsupported image type ${img.mediaType} (use JPEG, PNG, WebP or HEIC)`, 'analyzePhoto');
     }
     return { image: { base64: img.base64, mediaType: media } };
   });
@@ -310,22 +316,29 @@ const YES_NO = /^\s*(is|are|was|were|does|do|did|has|have|had|can|could|will|wou
 function checkQuestions(
   raw: { question: string; hint: string; detail_indexes: number[] }[],
   hidden: HiddenDetail[],
-): { ok: Question[]; rejected: number } {
+): { ok: Question[]; rejected: number; leaked: string[] } {
   const used = new Set<number>();
   const ok: Question[] = [];
+  const leaked = new Set<string>();
   let rejected = 0;
   for (const q of raw) {
     const idx = [...new Set(q.detail_indexes)].filter((i) => Number.isInteger(i) && i >= 0 && i < hidden.length && !used.has(i));
     const secret = idx.map((i) => hidden[i].detail).join(' ');
-    const bad =
-      idx.length === 0 || !q.question.trim() || YES_NO.test(q.question) ||
-      leakedWords(q.question, secret).length > 0 || leakedWords(q.hint, secret).length > 0;
-    if (bad) { rejected++; continue; }
+    const leaks = [...leakedWords(q.question, secret), ...leakedWords(q.hint, secret)];
+    const why =
+      idx.length === 0 ? 'no valid detail_indexes' : !q.question.trim() ? 'empty' :
+      YES_NO.test(q.question) ? 'yes/no' : leaks.length ? `leaks "${leaks.join('", "')}"` : '';
+    if (why) {
+      rejected++;
+      leaks.forEach((w) => leaked.add(w));
+      if (process.env.AI_DEBUG) console.warn(`[generateQuestions] rejected (${why}): ${q.question} | ${q.hint}`);
+      continue;
+    }
     idx.forEach((i) => used.add(i));
     ok.push({ id: `q${ok.length + 1}`, question: q.question.trim(), hint: q.hint.trim() || undefined, detail_indexes: idx });
     if (ok.length === 3) break;
   }
-  return { ok, rejected };
+  return { ok, rejected, leaked: [...leaked] };
 }
 
 /** Code-only questions when AI fails. Generic, open-ended, never contain detail words. */
@@ -349,24 +362,37 @@ export async function generateQuestions(input: { hidden: HiddenDetail[] }): Prom
   const hidden = input.hidden;
   if (hidden.length === 0) return [];
   const list = hidden.map((d, i) => `${i}. [weight ${d.weight}] ${d.detail}`).join('\n');
+  let best: Question[] = [];
+  let feedback = '';
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const r = await callJson({
         task: 'generateQuestions',
         system: QUESTIONS_SYSTEM,
-        content:
-          `Hidden details (index. [weight] detail):\n${list}` +
-          (attempt > 1 ? '\n\nYour previous questions leaked words from the details or were yes/no. Rephrase more generally.' : ''),
+        content: `Hidden details (index. [weight] detail):\n${list}${feedback}`,
         schema: QuestionsSchema,
       });
-      const { ok } = checkQuestions(r.questions, hidden);
+      const { ok, leaked } = checkQuestions(r.questions, hidden);
       if (ok.length >= 2 || (ok.length === 1 && hidden.length === 1)) return ok;
+      if (ok.length > best.length) best = ok;
+      feedback =
+        '\n\nYour previous questions were rejected' +
+        (leaked.length ? ` for using these words from the details: ${leaked.join(', ')}. Do not use them or close synonyms.` : ' (yes/no or no valid detail_indexes).') +
+        ' Rephrase more generally.';
     } catch (err) {
       console.warn('[generateQuestions] attempt failed:', err instanceof Error ? err.message : err);
     }
   }
-  return fallbackQuestions(hidden);
+
+  // Keep any good AI questions; cover the remaining details with code questions.
+  if (best.length === 0) return fallbackQuestions(hidden);
+  const used = new Set(best.flatMap((q) => q.detail_indexes));
+  const rest = hidden.map((d, i) => ({ ...d, i })).filter((d) => !used.has(d.i));
+  const extra = fallbackQuestions(rest.map(({ detail, weight }) => ({ detail, weight })))
+    .slice(0, 3 - best.length)
+    .map((q) => ({ ...q, detail_indexes: q.detail_indexes.map((j) => rest[j].i) }));
+  return [...best, ...extra].map((q, n) => ({ ...q, id: `q${n + 1}` }));
 }
 
 // ---------- Task 5: grade answers ----------

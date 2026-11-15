@@ -1,7 +1,8 @@
 // Person 3: AI test script.
 //   npm run test:ai              → offline checks (scoring, prefilter, categories) + live Gemini checks if a key is set
 //   npm run test:ai -- --offline → offline checks only (no API calls, free)
-//   npm run test:ai -- --photos  → also run analyzePhoto on every image in data/seed/photos/
+//   npm run test:ai -- --photos  → also run analyzePhoto on every image in data/seed/photos/ (or PHOTOS_DIR)
+//   npm run test:ai -- --photos-only → just the photos
 // Needs GEMINI_API_KEY in .env.local (or the environment) for the live part.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -17,7 +18,8 @@ import type { FoundItemRow, HiddenDetail, LostReportRow, Question, Building } fr
 
 const args = new Set(process.argv.slice(2));
 const OFFLINE = args.has('--offline');
-const PHOTOS = args.has('--photos');
+const PHOTOS_ONLY = args.has('--photos-only');
+const PHOTOS = args.has('--photos') || PHOTOS_ONLY;
 
 let failures = 0;
 function check(name: string, ok: boolean, extra = '') {
@@ -190,8 +192,8 @@ async function live() {
 
 async function photos(ai: typeof import('@/lib/ai')) {
   section('analyzePhoto on data/seed/photos');
-  const dir = path.resolve('data/seed/photos');
-  const files = existsSync(dir) ? readdirSync(dir).filter((f) => /\.(jpe?g|png|webp|gif)$/i.test(f)) : [];
+  const dir = path.resolve(process.env.PHOTOS_DIR || 'data/seed/photos');
+  const files = existsSync(dir) ? readdirSync(dir).filter((f) => /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(f)) : [];
   if (files.length === 0) return console.log('  (no photos yet — Person 4 adds them to data/seed/photos/)');
   for (const f of files) {
     const ext = path.extname(f).slice(1).toLowerCase();
@@ -220,7 +222,8 @@ async function main() {
     console.log('\n(no GEMINI_API_KEY — skipping live Gemini tests; add it to .env.local)');
     return;
   }
-  await live();
+  if (PHOTOS_ONLY) await photos(await import('@/lib/ai'));
+  else await live();
 }
 
 main()
