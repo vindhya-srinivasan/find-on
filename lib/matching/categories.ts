@@ -34,7 +34,7 @@ export function categoryGroup(category: string | null | undefined): string {
   let best: { group: string; len: number } | null = null;
   for (const [group, words] of Object.entries(CATEGORY_GROUPS)) {
     for (const w of words) {
-      const re = new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}s?\\b`);
+      const re = new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:e?s)?\\b`);
       if (re.test(c) && (!best || w.length > best.len)) best = { group, len: w.length };
     }
   }
