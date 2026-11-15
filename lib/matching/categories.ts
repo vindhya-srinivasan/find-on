@@ -15,7 +15,8 @@ export const CATEGORY_GROUPS: Record<string, string[]> = {
   glasses: ['glasses', 'sunglasses', 'eyeglasses', 'glasses case'],
   jewelry: ['watch', 'smartwatch', 'apple watch', 'ring', 'necklace', 'bracelet', 'earring', 'jewelry'],
   book: ['book', 'notebook', 'textbook', 'binder', 'folder', 'planner'],
-  electronics: ['remote', 'remote control', 'speaker', 'controller', 'game controller', 'mouse', 'camera', 'calculator', 'usb drive', 'flash drive'],
+  stationery: ['scissors', 'stapler', 'ruler', 'pen', 'pencil'],
+  electronics: ['remote', 'remote control', 'speaker', 'controller', 'game controller', 'mouse', 'camera', 'calculator', 'usb drive', 'flash drive', 'stylus', 'apple pencil'],
 };
 
 /** Suggested canonical categories, given to the AI in prompts. */
@@ -23,7 +24,7 @@ export const CATEGORIES = [
   'water bottle', 'headphones', 'earbuds', 'backpack', 'bag', 'tote', 'jacket', 'hoodie', 'sweater', 'hat',
   'phone', 'laptop', 'tablet', 'wallet', 'id card', 'credit/debit card', 'passport', 'keys', 'charger',
   'power bank', 'umbrella', 'glasses', 'watch', 'jewelry', 'notebook', 'textbook', 'calculator', 'remote control',
-  'speaker', 'game controller', 'camera',
+  'speaker', 'game controller', 'camera', 'stylus', 'scissors',
 ];
 
 /** Map a free-text category to a group key; unknown → 'other'. Longest keyword wins (so "card holder" beats "card"). */
