@@ -12,7 +12,7 @@ import { FlowBottomSpace, PrimaryAction, StickyAction } from '@/components/Flow'
 import { Badge, Card, ErrorText, LinkButton, Loading } from '@/components/ui';
 
 export default function ItemPage() {
-  return <Suspense fallback={<Loading />}><ItemView /></Suspense>;
+  return <Suspense fallback={<Loading />}><ItemView key={useRouter().bfcacheId} /></Suspense>;
 }
 
 function ItemView() {

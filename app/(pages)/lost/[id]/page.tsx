@@ -10,7 +10,7 @@ import { useBuildings } from '@/components/useBuildings';
 import { Button, Card, EmptyState, ErrorText, Loading, PageTitle } from '@/components/ui';
 
 export default function LostMatchesRoute() {
-  return <Suspense fallback={<Loading />}><LostMatches /></Suspense>;
+  return <Suspense fallback={<Loading />}><LostMatches key={useRouter().bfcacheId} /></Suspense>;
 }
 
 function LostMatches() {
