@@ -4,6 +4,7 @@
 //   npx tsx --conditions=react-server scripts/guess-game.mts          humans play at the keyboard
 //   npx tsx --conditions=react-server scripts/guess-game.mts --bots   Claude plays 3 guessers + 1 owner per item
 //   add --requestion to regenerate the questions (keeps the cached photo analysis) after a prompt change
+//   --only <file.jpg> to play one item; --fresh to re-analyze the photo(s)
 //
 // Items = photos in data/seed/photos/. Each photo is analyzed once and cached, so every player gets the
 // same questions. Every attempt is appended to a log for tuning (path printed at the end).
@@ -28,10 +29,12 @@ type Item = { file: string; analysis: PhotoAnalysis; questions: Question[] };
 // ---------- items ----------
 async function loadItems(): Promise<Item[]> {
   const cache: Record<string, Item> = existsSync(CACHE) ? JSON.parse(readFileSync(CACHE, 'utf8')) : {};
-  const files = readdirSync(DIR).filter((f) => /\.(jpe?g|png|webp)$/i.test(f)).sort();
+  const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
+  const fresh = process.argv.includes('--fresh');
+  const files = readdirSync(DIR).filter((f) => /\.(jpe?g|png|webp)$/i.test(f) && (!only || f === only)).sort();
   const items: Item[] = [];
   for (const [n, file] of files.entries()) {
-    if (!cache[file]) {
+    if (!cache[file] || fresh) {
       process.stdout.write(`Preparing ${file}… `);
       const ext = path.extname(file).slice(1).toLowerCase();
       const analysis = await ai.analyzePhoto({
