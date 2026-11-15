@@ -1,6 +1,7 @@
 // Person 2: my notifications. Contract: Team Tasks > API routes.
 import { connection } from 'next/server';
 import { error, json } from '@/lib/api';
+import { sweepStale } from '@/lib/db';
 import { requireUser } from '@/lib/supabase/auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import type { NotificationItem } from '@/types';
@@ -12,6 +13,7 @@ export async function GET(req: Request) {
   try {
     const me = await requireUser(req);
     if (me instanceof Response) return me;
+    await sweepStale(me.id);
 
     const db = supabaseAdmin();
     const n = await db
