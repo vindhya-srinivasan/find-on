@@ -3,8 +3,17 @@ import 'server-only';
 import { ApiError, GoogleGenAI, type Part } from '@google/genai';
 import { z } from 'zod';
 
-/** Override with GEMINI_MODEL in .env.local if the sponsor recommends a different model. */
-export const MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+/**
+ * Models tried in order; on overload (429/503/504/timeout) we move to the next one.
+ * GEMINI_MODEL in .env.local goes first if set. (3.7/3.8-flash were overloaded on Nov 14; 3.6 answered in ~2 s.)
+ */
+export const MODELS = [...new Set([process.env.GEMINI_MODEL, 'gemini-3.6-flash', 'gemini-3.5-flash'].filter(Boolean) as string[])];
+export const MODEL = MODELS[0];
+
+function isOverload(err: unknown): boolean {
+  if (err instanceof ApiError) return [429, 500, 503, 504].includes(err.status);
+  return err instanceof Error && /timeout|timed out|abort|deadline/i.test(err.message);
+}
 
 /** Thrown when the model can't produce valid output after one retry. Routes catch this and fall back. */
 export class AiError extends Error {
@@ -19,10 +28,10 @@ function client(): GoogleGenAI {
   if (!_client) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new AiError('GEMINI_API_KEY is not set', 'client');
-    // 60 s per request; SDK retries 429/5xx up to 3 attempts with backoff.
+    // Fail fast (25 s, one SDK retry) so an overloaded model hands off to the next one quickly.
     _client = new GoogleGenAI({
       apiKey,
-      httpOptions: { timeout: 60_000, retryOptions: { attempts: 3, initialDelay: 1, maxDelay: 8 } },
+      httpOptions: { timeout: 25_000, retryOptions: { attempts: 2, initialDelay: 1, maxDelay: 4 } },
     });
   }
   return _client;
@@ -57,11 +66,15 @@ export async function callJson<S extends z.ZodType>(opts: {
   maxTokens?: number;
 }): Promise<z.infer<S>> {
   let lastErr: unknown;
+  let modelIdx = 0;
+  let badOutputs = 0;
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  // Bad/invalid output → retry once on the same model. Overload → move to the next model.
+  while (modelIdx < MODELS.length && badOutputs < 2) {
+    const model = MODELS[modelIdx];
     try {
       const res = await client().models.generateContent({
-        model: MODEL,
+        model,
         contents: [{ role: 'user', parts: toParts(opts.content) }],
         config: {
           systemInstruction: opts.system,
@@ -83,9 +96,15 @@ export async function callJson<S extends z.ZodType>(opts: {
       return parsed.data;
     } catch (err) {
       lastErr = err;
-      // Bad key / bad request won't fix themselves on retry.
-      if (err instanceof AiError) break;
-      if (err instanceof ApiError && [400, 401, 403, 404].includes(err.status)) break;
+      if (err instanceof AiError) break; // missing key
+      if (isOverload(err) || (err instanceof ApiError && err.status === 404)) {
+        console.warn(`[ai] ${model} unavailable for ${opts.task}, trying next model`);
+        modelIdx++;
+      } else if (err instanceof ApiError && [400, 401, 403].includes(err.status)) {
+        break; // bad key / bad request won't fix itself
+      } else {
+        badOutputs++;
+      }
     }
   }
   const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
