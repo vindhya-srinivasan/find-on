@@ -2,15 +2,14 @@
 //
 // Failure behaviour (the app never blocks on AI):
 //   analyzePhoto, parseLostReport, gradeAnswers → throw AiError; routes fall back (manual fields / human review).
-//   rankMatches      → never throws; falls back to pre-filter order (recency) with a code-written reason.
+//   rankMatches       → never throws; falls back to pre-filter order (recency) with a code-written reason.
 //   generateQuestions → never throws; falls back to generic open-ended questions built in code.
 import 'server-only';
 import { z } from 'zod';
-import type Anthropic from '@anthropic-ai/sdk';
 import type {
   GradeResult, HiddenDetail, MatchResult, ParsedLostReport, PhotoAnalysis, Question, Verdict, Weight,
 } from '@/types';
-import { AiError, callJson, untrusted } from './client';
+import { AiError, callJson, untrusted, type AiPart } from './client';
 import { CATEGORIES, categoryGroup } from '@/lib/matching/categories';
 
 export { AiError } from './client';
@@ -67,7 +66,7 @@ const PhotoSchema = z.object({
   category: z.string(),
   color: z.string(),
   brand: z.string().nullable(),
-  hidden_details: z.array(z.object({ detail: z.string(), weight: z.number().int() })),
+  hidden_details: z.array(z.object({ detail: z.string(), weight: z.number() })),
   is_valuable: z.boolean(),
 });
 
@@ -103,22 +102,21 @@ export async function analyzePhoto(input: {
   const images = input.images.slice(0, 3);
   if (images.length === 0) throw new AiError('No photo provided', 'analyzePhoto');
 
-  const content: Anthropic.Beta.BetaContentBlockParam[] = images.map((img) => {
+  const content: AiPart[] = images.map((img) => {
     const media = img.mediaType.toLowerCase().replace('image/jpg', 'image/jpeg');
     if (!ALLOWED_MEDIA.includes(media as ImageMedia)) {
       throw new AiError(`Unsupported image type ${img.mediaType} (use JPEG, PNG, GIF or WebP)`, 'analyzePhoto');
     }
-    return { type: 'image', source: { type: 'base64', media_type: media as ImageMedia, data: img.base64 } };
+    return { image: { base64: img.base64, mediaType: media } };
   });
   content.push({
-    type: 'text',
     text:
       `Found at: ${input.buildingName}\n` +
       (input.landmark ? `Finder's landmark note: ${untrusted('landmark', input.landmark)}\n` : '') +
       'Analyze the item in the photo(s).',
   });
 
-  const r = await callJson({ task: 'analyzePhoto', system: PHOTO_SYSTEM, content, schema: PhotoSchema, effort: 'medium' });
+  const r = await callJson({ task: 'analyzePhoto', system: PHOTO_SYSTEM, content, schema: PhotoSchema });
 
   const hidden: HiddenDetail[] = r.hidden_details
     .filter((d) => d.detail.trim().length > 0)
@@ -191,7 +189,6 @@ export async function parseLostReport(input: { text: string; now: string }): Pro
       `Current time: ${nowIso} (${pacificString(nowIso)})\n\n` +
       `Description:\n${untrusted('lost_description', input.text.slice(0, 2000))}`,
     schema: LostSchema,
-    effort: 'low',
   });
 
   // Validate the window in code: bad/missing/backwards → last 7 days.
@@ -267,7 +264,6 @@ export async function rankMatches(input: {
       system: RANK_SYSTEM,
       content: `Lost report:\n${lostBlock}\n\nCandidates (found items, from the system — trusted):\n${candBlock}`,
       schema: RankSchema,
-      effort: 'low',
     });
     const seen = new Set<string>();
     ranked = r.matches
@@ -297,7 +293,7 @@ export async function rankMatches(input: {
 // ---------- Task 4: generate verification questions ----------
 
 const QuestionsSchema = z.object({
-  questions: z.array(z.object({ question: z.string(), hint: z.string(), detail_indexes: z.array(z.number().int()) })),
+  questions: z.array(z.object({ question: z.string(), hint: z.string(), detail_indexes: z.array(z.number()) })),
 });
 
 const QUESTIONS_SYSTEM = `You write ownership-verification questions for FindOn, a USC lost-and-found app. A person claims a found item; they must prove it is theirs by describing details only the real owner would know. They can see only the category, color and building — never the hidden details below.
@@ -319,7 +315,7 @@ function checkQuestions(
   const ok: Question[] = [];
   let rejected = 0;
   for (const q of raw) {
-    const idx = [...new Set(q.detail_indexes)].filter((i) => i >= 0 && i < hidden.length && !used.has(i));
+    const idx = [...new Set(q.detail_indexes)].filter((i) => Number.isInteger(i) && i >= 0 && i < hidden.length && !used.has(i));
     const secret = idx.map((i) => hidden[i].detail).join(' ');
     const bad =
       idx.length === 0 || !q.question.trim() || YES_NO.test(q.question) ||
@@ -363,7 +359,6 @@ export async function generateQuestions(input: { hidden: HiddenDetail[] }): Prom
           `Hidden details (index. [weight] detail):\n${list}` +
           (attempt > 1 ? '\n\nYour previous questions leaked words from the details or were yes/no. Rephrase more generally.' : ''),
         schema: QuestionsSchema,
-        effort: 'low',
       });
       const { ok } = checkQuestions(r.questions, hidden);
       if (ok.length >= 2 || (ok.length === 1 && hidden.length === 1)) return ok;
@@ -378,7 +373,7 @@ export async function generateQuestions(input: { hidden: HiddenDetail[] }): Prom
 
 const GradeSchema = z.object({
   per_detail: z.array(z.object({
-    detail_index: z.number().int(),
+    detail_index: z.number(),
     verdict: z.enum(['match', 'partial', 'not_mentioned', 'contradicts']),
   })),
   reason: z.string(),
@@ -421,7 +416,6 @@ export async function gradeAnswers(input: {
       `Claimant's answers:\n${qa}\n\n` +
       `Claimant's earlier lost report:\n${untrusted('lost_report', input.lostReportText.slice(0, 2000) || '(none)')}`,
     schema: GradeSchema,
-    effort: 'medium',
   });
 
   const got = new Map<number, Verdict>();

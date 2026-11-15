@@ -1,5 +1,5 @@
 // Person 3: category vocabulary shared by the AI prompts and the pre-filter.
-// Claude is asked to pick one of CATEGORIES so finders and owners land in the same group.
+// The AI is asked to pick one of CATEGORIES so finders and owners land in the same group.
 
 export const CATEGORY_GROUPS: Record<string, string[]> = {
   bottle: ['water bottle', 'bottle', 'flask', 'tumbler', 'thermos', 'mug', 'cup', 'hydro flask', 'stanley'],
@@ -17,7 +17,7 @@ export const CATEGORY_GROUPS: Record<string, string[]> = {
   book: ['book', 'notebook', 'textbook', 'binder', 'folder', 'planner'],
 };
 
-/** Suggested canonical categories, given to Claude in prompts. */
+/** Suggested canonical categories, given to the AI in prompts. */
 export const CATEGORIES = [
   'water bottle', 'headphones', 'earbuds', 'backpack', 'bag', 'tote', 'jacket', 'hoodie', 'sweater', 'hat',
   'phone', 'laptop', 'tablet', 'wallet', 'id card', 'credit/debit card', 'passport', 'keys', 'charger',

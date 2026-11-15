@@ -1,4 +1,4 @@
-// Person 3: plain-code scoring (no AI). Spec > Scoring logic. Claude never outputs the score.
+// Person 3: plain-code scoring (no AI). Spec > Scoring logic. The AI never outputs the score.
 import type { ClaimFlag, GradeResult, HiddenDetail, Question, ScoreResult, Verdict } from '@/types';
 
 const CREDIT: Record<Verdict, number> = { match: 1, partial: 0.5, not_mentioned: 0, contradicts: -1 };
@@ -16,7 +16,7 @@ export function computeScore(input: {
     for (const i of q.detail_indexes) if (Number.isInteger(i) && i >= 0 && i < input.hidden.length) covered.add(i);
   }
 
-  // One verdict per detail; anything Claude skipped counts as not_mentioned. First verdict wins on duplicates.
+  // One verdict per detail; anything the AI skipped counts as not_mentioned. First verdict wins on duplicates.
   const verdicts = new Map<number, Verdict>();
   for (const v of input.grade.per_detail) {
     if (covered.has(v.detail_index) && !verdicts.has(v.detail_index) && v.verdict in CREDIT) {

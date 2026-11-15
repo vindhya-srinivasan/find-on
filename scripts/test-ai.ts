@@ -1,8 +1,8 @@
 // Person 3: AI test script.
-//   npm run test:ai              → offline checks (scoring, prefilter, categories) + live Claude checks if a key is set
+//   npm run test:ai              → offline checks (scoring, prefilter, categories) + live Gemini checks if a key is set
 //   npm run test:ai -- --offline → offline checks only (no API calls, free)
 //   npm run test:ai -- --photos  → also run analyzePhoto on every image in data/seed/photos/
-// Needs ANTHROPIC_API_KEY in .env.local (or the environment) for the live part.
+// Needs GEMINI_API_KEY in .env.local (or the environment) for the live part.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -200,8 +200,8 @@ async function main() {
   await offline();
   if (OFFLINE) return;
   try { process.loadEnvFile('.env.local'); } catch { /* no .env.local */ }
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.log('\n(no ANTHROPIC_API_KEY — skipping live Claude tests; add it to .env.local)');
+  if (!process.env.GEMINI_API_KEY) {
+    console.log('\n(no GEMINI_API_KEY — skipping live Gemini tests; add it to .env.local)');
     return;
   }
   await live();
