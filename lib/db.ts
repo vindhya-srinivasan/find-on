@@ -6,8 +6,10 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { signedUrl } from '@/lib/supabase/storage';
 import { rankMatches } from '@/lib/ai';
 import { prefilter } from '@/lib/matching/prefilter';
+import type { AuthedUser } from '@/lib/supabase/auth';
 import type {
-  Building, ClaimFlag, ClaimStatus, FoundItemRow, ItemStatus, LostReportRow, MatchResult, MatchWithItem, PublicFoundItem,
+  Building, ClaimDetail, ClaimFlag, ClaimStatus, FoundItemRow, HiddenDetail, ItemStatus, LostReportRow, MatchResult, MatchWithItem,
+  PublicFoundItem, Question, ReturnDetails,
 } from '@/types';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -51,23 +53,26 @@ export function genericReason(item: Pick<FoundItemRow, 'category' | 'color' | 'f
 
 const words = (s: string | null | undefined) => (s ?? '').toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
 
-// AI reasons go to the owner before any verification, so they must not leak hidden details or brand.
-export function safePublicReason(
-  reason: string,
-  item: Pick<FoundItemRow, 'category' | 'color' | 'brand' | 'public_title' | 'hidden_details' | 'found_at'>,
-  buildingName: string,
-): string {
-  const allowed = new Set(words([item.category, item.color, item.public_title, buildingName].join(' ')));
+// Same word or same stem (sticker/stickers, dent/dented, engraving/engraved); a false positive only falls back to generic.
+const near = (w: string, b: string) =>
+  w.startsWith(b) || (w.length >= 4 && b.startsWith(w)) || (w.length >= 5 && b.length >= 5 && w.slice(0, 5) === b.slice(0, 5));
+
+type LeakItem = Pick<FoundItemRow, 'category' | 'color' | 'brand' | 'public_title' | 'hidden_details'>;
+
+/** True if text mentions a hidden-detail or brand word. Words in category/color/title (+ alsoAllowed) are fine. */
+export function leaksHidden(text: string, item: LeakItem, alsoAllowed = ''): boolean {
+  const allowed = new Set(words([item.category, item.color, item.public_title, alsoAllowed].join(' ')));
   // Length filter only on hidden-detail words: short brands (HP, LG, JBL) must still be banned.
   const banned = [...(item.hidden_details ?? []).flatMap((h) => words(h.detail)).filter((w) => w.length >= 4), ...words(item.brand)].filter(
     (w) => !allowed.has(w),
   );
-  // Same word or same stem (sticker/stickers, dent/dented, engraving/engraved); a false positive only falls back to generic.
-  const near = (w: string, b: string) =>
-    w.startsWith(b) || (w.length >= 4 && b.startsWith(w)) || (w.length >= 5 && b.length >= 5 && w.slice(0, 5) === b.slice(0, 5));
+  return words(text).some((w) => !allowed.has(w) && banned.some((b) => near(w, b)));
+}
+
+// AI reasons go to the owner before any verification, so they must not leak hidden details or brand.
+export function safePublicReason(reason: string, item: LeakItem & Pick<FoundItemRow, 'found_at'>, buildingName: string): string {
   const r = (reason ?? '').trim();
-  const leaks = words(r).some((w) => !allowed.has(w) && banned.some((b) => near(w, b)));
-  return !r || r.length > 300 || leaks ? genericReason(item, buildingName) : r;
+  return !r || r.length > 300 || leaksHidden(r, item, buildingName) ? genericReason(item, buildingName) : r;
 }
 
 type MatchRow = { lost_report_id: string; found_item_id: string; score: number; public_reason: string; notified: boolean };
@@ -265,4 +270,180 @@ export function claimFlags(
 
 export function isPrefiled(report: Pick<LostReportRow, 'created_at'>, item: Pick<FoundItemRow, 'found_at'>): boolean {
   return Date.parse(report.created_at) < Date.parse(item.found_at);
+}
+
+// ---- Claims (Phase D) ----
+
+export type ClaimRow = {
+  id: string; found_item_id: string; lost_report_id: string; claimant_id: string;
+  questions: Question[]; // server-only
+  answers: { question_id: string; answer: string }[] | null;
+  score: number | null; reason: string | null; flags: ClaimFlag[];
+  status: ClaimStatus; pickup_code: string | null; attempt_no: number; created_at: string;
+};
+
+export const PASSED_CLAIM: ClaimStatus[] = ['likely_owner', 'approved'];
+export const OPEN_CLAIM: ClaimStatus[] = ['awaiting_answers', 'likely_owner', 'needs_review', 'approved'];
+
+type Handled = Pick<FoundItemRow, 'finder_id' | 'return_method' | 'held_at_desk_id'>;
+
+const copyQuestion = (q: Question): Question => ({
+  id: q.id, question: q.question, ...(q.hint && { hint: q.hint }), detail_indexes: q.detail_indexes,
+});
+
+/** Sanitizes P3's questions. null = something leaked or nothing usable survived (caller regenerates, then genericQuestions). */
+export function safeQuestions(raw: unknown, item: LeakItem): Question[] | null {
+  if (!Array.isArray(raw)) return null;
+  const n = (item.hidden_details ?? []).length;
+  const out: Question[] = [];
+  for (const q of raw) {
+    if (out.length >= 3) break;
+    const question = typeof q?.question === 'string' ? q.question.trim() : '';
+    // Drop rather than truncate: a cut-off word could slip past the leak check.
+    if (!question || question.length > 300) continue;
+    const hint = typeof q?.hint === 'string' && q.hint.trim().length <= 200 ? q.hint.trim() : '';
+    const idx = Array.isArray(q?.detail_indexes) ? q.detail_indexes : [];
+    const detail_indexes = [...new Set<number>(idx.filter((i: unknown) => Number.isInteger(i) && (i as number) >= 0 && (i as number) < n))];
+    if (!detail_indexes.length) continue;
+    if (leaksHidden(`${question} ${hint}`, item)) return null;
+    out.push({ id: `q${out.length + 1}`, question, ...(hint && { hint }), detail_indexes });
+  }
+  return out.length ? out : null;
+}
+
+/** Same text for every item, so it reveals nothing. */
+export function genericQuestions(hiddenCount: number): Question[] {
+  return [{
+    id: 'q1',
+    question: 'Describe your item in as much detail as you can.',
+    hint: 'e.g. marks, scratches, stickers, what was inside, anything written on it',
+    detail_indexes: Array.from({ length: hiddenCount }, (_, i) => i),
+  }];
+}
+
+/** Who may review / return this item: its finder (held items) or desk staff of its desk (desk items). */
+export function handlerRole(me: Pick<AuthedUser, 'id' | 'role' | 'desk_id'>, item: Handled): 'finder' | 'desk' | null {
+  if (item.return_method === 'finder' && me.id === item.finder_id) return 'finder';
+  if (item.return_method === 'desk' && me.role === 'desk' && (item.held_at_desk_id === null || item.held_at_desk_id === me.desk_id)) return 'desk';
+  return null;
+}
+
+export function displayName(u: { first_name: string; last_initial: string }): string {
+  return u.last_initial ? `${u.first_name} ${u.last_initial}.` : u.first_name;
+}
+
+/** Best effort: a failed notification never fails the request. */
+export async function notify(userIds: string[], text: string, link: string): Promise<void> {
+  const ids = [...new Set(userIds)];
+  if (!ids.length) return;
+  try {
+    await supabaseAdmin().from('notifications').insert(ids.map((user_id) => ({ user_id, text, link })));
+  } catch {
+    // ignored on purpose
+  }
+}
+
+/** For notifications only, so errors give []. */
+export async function reviewerIds(item: Handled): Promise<string[]> {
+  if (item.return_method === 'finder') return [item.finder_id];
+  try {
+    let q = supabaseAdmin().from('users').select('id').eq('role', 'desk');
+    if (item.held_at_desk_id) q = q.eq('desk_id', item.held_at_desk_id);
+    const { data, error } = await q;
+    return error ? [] : (data ?? []).map((u) => u.id as string);
+  } catch {
+    return [];
+  }
+}
+
+/** Guarded status change that issues a pickup code. Returns the code, or null if the claim was no longer `from`. */
+export async function setClaimPassed(
+  claimId: string,
+  from: ClaimStatus,
+  to: 'likely_owner' | 'approved',
+  extra?: Partial<Pick<ClaimRow, 'answers' | 'score' | 'reason'>>,
+): Promise<string | null> {
+  for (let i = 0; i < 5; i++) {
+    const pickup_code = makePickupCode();
+    const { data, error } = await supabaseAdmin()
+      .from('claims')
+      .update({ ...extra, status: to, pickup_code })
+      .eq('id', claimId)
+      .eq('status', from)
+      .select('id');
+    if (error?.code === '23505') continue; // code already used on this item
+    if (error) throw new Error('Could not update claim');
+    return data?.length ? pickup_code : null;
+  }
+  throw new Error('Could not make a pickup code');
+}
+
+export async function dpsDeskId(): Promise<string | null> {
+  const { data, error } = await supabaseAdmin().from('desks').select('id').ilike('name', '%dps%').order('id').limit(1).maybeSingle();
+  if (error) throw new Error('Could not load desk');
+  return data?.id ?? null;
+}
+
+export async function publicItemOf(row: FoundItemRow): Promise<PublicFoundItem> {
+  return toPublicFoundItem(row, await signedUrl(row.blurred_thumb_path, 3600));
+}
+
+export type ClaimDetailOut = ClaimDetail & {
+  hidden_details?: HiddenDetail[]; landmark?: string | null; found_at?: string; claimant_name?: string;
+};
+
+async function userName(id: string): Promise<string> {
+  const { data, error } = await supabaseAdmin().from('users').select('first_name, last_initial').eq('id', id).maybeSingle();
+  if (error) throw new Error('Could not load user');
+  return data ? displayName(data) : 'Someone';
+}
+
+async function returnDetails(item: FoundItemRow): Promise<ReturnDetails> {
+  if (item.return_method === 'finder') {
+    return { method: 'finder', finder_name: await userName(item.finder_id), finder_availability: item.finder_availability };
+  }
+  const deskId = item.held_at_desk_id ?? (await dpsDeskId());
+  if (!deskId) return { method: 'desk' };
+  const { data, error } = await supabaseAdmin().from('desks').select('name, hours_text').eq('id', deskId).maybeSingle();
+  if (error) throw new Error('Could not load desk');
+  return data ? { method: 'desk', desk_name: data.name, desk_hours: data.hours_text } : { method: 'desk' };
+}
+
+/** GET /api/claims/:id body. Routes check access first; the asserts below only catch a wrong `viewer`. */
+export async function buildClaimDetail(
+  me: Pick<AuthedUser, 'id' | 'role' | 'desk_id'>,
+  claim: ClaimRow,
+  item: FoundItemRow,
+  viewer: 'claimant' | 'finder' | 'desk',
+): Promise<ClaimDetailOut> {
+  if (viewer === 'claimant' ? me.id !== claim.claimant_id : handlerRole(me, item) !== viewer) throw new Error('Wrong viewer');
+  const passed = PASSED_CLAIM.includes(claim.status) || claim.status === 'returned';
+  const out: ClaimDetailOut = { id: claim.id, status: claim.status, viewer, item: await publicItemOf(item), created_at: claim.created_at };
+
+  if (viewer === 'claimant') {
+    if (claim.status === 'awaiting_answers') out.questions = (claim.questions ?? []).map(copyQuestion);
+    if (claim.status === 'rejected') {
+      out.retry_after = claim.attempt_no === 1 ? new Date(Date.parse(claim.created_at) + DAY_MS).toISOString() : null;
+    }
+    if (passed) {
+      if (claim.pickup_code && PASSED_CLAIM.includes(claim.status)) out.pickup_code = claim.pickup_code;
+      out.full_photo_urls = (await Promise.all(item.photo_paths.map((p) => signedUrl(p, 600)))).filter(Boolean);
+      out.return_details = await returnDetails(item);
+      out.hidden_details = item.hidden_details;
+      out.landmark = item.landmark;
+      out.found_at = item.found_at;
+    }
+    return out;
+  }
+
+  // Finder / desk: never the pickup code, emails or photo paths.
+  const asked = new Map((claim.questions ?? []).map((q) => [q.id, q.question]));
+  if (claim.answers) out.answers = claim.answers.map((a) => ({ question: asked.get(a.question_id) ?? '', answer: a.answer }));
+  if (claim.score !== null) out.score = claim.score;
+  if (claim.reason) out.reason = claim.reason;
+  out.flags = claim.flags ?? [];
+  out.return_details = await returnDetails(item);
+  // Finder can't see who claims until verification passes; desk staff always can.
+  if (viewer === 'desk' || passed) out.claimant_name = await userName(claim.claimant_id);
+  return out;
 }
