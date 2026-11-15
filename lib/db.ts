@@ -38,6 +38,11 @@ export function blurThumbnail(buffer: Buffer): Promise<Buffer> {
   return sharp(buffer).rotate().resize({ width: 320, withoutEnlargement: true }).blur(20).jpeg({ quality: 60 }).toBuffer();
 }
 
+// Phase C: prefilter + rankMatches over open lost reports; saves matches >= 50 and notifies owners.
+export async function runMatchingForFoundItem(foundItemId: string): Promise<void> {
+  void foundItemId;
+}
+
 export function canClaim(input: {
   isFinder: boolean;
   lostReport: Pick<LostReportRow, 'status'> | null;
