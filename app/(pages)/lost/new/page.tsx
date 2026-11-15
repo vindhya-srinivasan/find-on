@@ -97,7 +97,12 @@ const Pin = () => (
   </svg>
 );
 
-export default function LostNew() {
+export default function LostNewRoute() {
+  // Next keeps pages you leave alive (Cache Components); a new key on every visit starts the flow fresh.
+  return <LostNew key={useRouter().bfcacheId} />;
+}
+
+function LostNew() {
   const router = useRouter();
   const { buildings } = useBuildings();
   const { state: loc, locate } = useCurrentBuilding(buildings);

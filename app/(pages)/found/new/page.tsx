@@ -3,6 +3,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
 import type { Building, HiddenDetail, PhotoAnalysis, PublicFoundItem, ReturnMethod } from '@/types';
 import { api } from '@/lib/mock';
@@ -16,7 +17,12 @@ import { DEFAULT_DESK, DESKS, DESK_BLURB, deskName } from '@/components/desks';
 
 const TOTAL = 4;
 
-export default function FoundNew() {
+export default function FoundNewRoute() {
+  // Next keeps pages you leave alive (Cache Components); a new key on every visit starts the flow fresh.
+  return <FoundNew key={useRouter().bfcacheId} />;
+}
+
+function FoundNew() {
   const { buildings } = useBuildings();
   const [step, setStep] = useState(1);
   const [photos, setPhotos] = useState<File[]>([]);
