@@ -94,11 +94,13 @@ const PHOTO_SYSTEM = `You analyze photos of items found on the USC campus for Fi
 The public listing will show ONLY category, main color and building. Everything that could prove ownership must go into hidden_details, which only a verified owner ever sees.
 
 Return:
-- is_valid_item: false if the photo is too blurry to identify, shows no physical belonging, or shows food, drinks, trash, perishables, or anything dangerous (weapons, drugs, drug paraphernalia). Otherwise true.
+- is_valid_item: false if the photo is too blurry to identify, shows no physical belonging, or shows food, drinks, trash, perishables, medication, or anything dangerous (weapons, drugs, drug paraphernalia). Otherwise true.
 - reject_reason: when is_valid_item is false, one short friendly sentence for the finder:
   * blurry / not an item → ask them to retake the photo.
   * food, trash, perishables → "FindOn is for belongings, not food or trash."
   * weapons, drugs or anything dangerous → tell them not to post it and to contact USC DPS directly at (213) 740-4321.
+  * medication (pill bottles, prescriptions, inhalers, insulin) → tell them not to post it (it shows private health information) and to hand it to USC DPS directly at (213) 740-4321.
+  Everyday tools and stationery (scissors, rulers, pens, staplers, calculators) are ordinary belongings, not dangerous: treat them as valid items.
   When valid, null.
 - category: short and generic, lowercase. Use one of these if it fits: ${CATEGORIES.join(', ')}. If none fits, use a short generic noun (e.g. "remote control", "speaker"); never "other" or "item".
 - color: the single main color, lowercase (e.g. "black", "grey", "navy blue").
@@ -110,7 +112,7 @@ Return:
   Weight 3 only for things unique to THIS unit (added, personal, worn or damaged). Features every unit of that model has (factory buttons, standard logos, stock colors) are weight 2 at most, even if they look distinctive.
   Include the brand as its own weight-2 detail when known. Describe each detail concretely ("pink flower sticker near the base", not "has a sticker").
   Only quote text, numbers or initials you can read with certainty; if any character is unclear, describe it generally ("a printed ID number", "embossed initials") so a real owner is never marked wrong by a misreading.
-  Privacy: never describe a person's face, body, gender or other appearance (e.g. on an ID photo, say only "has a portrait photo"). If a screen is on, do not record names, messages, notifications or the time shown on it; describe only lasting things like the wallpaper or case.
+  Privacy: never describe a person's face, body, gender or other appearance (e.g. on an ID photo, say only "has a portrait photo"). If a screen is on, do not record anything displayed on it (names, messages, notifications, time, lock or passcode screens); describe only lasting things like the case, band or damage.
   For ID cards, credit/debit cards, passports and documents: names, numbers and photos printed on them go ONLY here (and never repeat full card or ID numbers — last 4 digits at most).
 - is_valuable: true for wallet, ID card, keys, phone, laptop, tablet, credit/debit card, passport.
 
@@ -327,7 +329,8 @@ const QuestionsSchema = z.object({
 const QUESTIONS_SYSTEM = `You write ownership-verification questions for FindOn, a USC lost-and-found app. A person claims a found item; they must prove it is theirs by describing details only the real owner would know. They can see only the category, color and building — never the hidden details below.
 
 Write 2 or 3 questions:
-- Cover the highest-weight details first. Each question lists the detail_indexes it covers (each index used at most once overall; cover at most 5 details in total).
+- Each question is about exactly ONE detail: detail_indexes has a single index. People answer one thing per question, so never bundle two details into one question.
+- Pick the highest-weight details first; never ask about the same detail twice.
 - Open-ended only ("Describe any decorations or markings on it."). NEVER yes/no, never multiple choice, never "Is it…", "Does it have…".
 - NEVER use any word from the hidden details (or a giveaway synonym) in the question or hint. Ask about the kind of thing ("markings", "what was inside", "the top part"), not the answer ("sticker", "dent", "green").
 - Keep each question short and natural for a phone screen.
@@ -344,7 +347,11 @@ function checkQuestions(
   const leaked = new Set<string>();
   let rejected = 0;
   for (const q of raw) {
-    const idx = [...new Set(q.detail_indexes)].filter((i) => Number.isInteger(i) && i >= 0 && i < hidden.length && !used.has(i));
+    // One detail per question: an honest owner answers one thing, so a bundled second detail would cost them points.
+    const idx = [...new Set(q.detail_indexes)]
+      .filter((i) => Number.isInteger(i) && i >= 0 && i < hidden.length && !used.has(i))
+      .sort((a, b) => hidden[b].weight - hidden[a].weight)
+      .slice(0, 1);
     // Check against ALL hidden details: a question about the lid must not reveal the sticker either.
     const leaks = questionLeaks(`${q.question} ${q.hint}`, hidden);
     const why =
@@ -365,19 +372,17 @@ function checkQuestions(
 
 /** Code-only questions when AI fails. Generic, open-ended, never contain detail words. */
 function fallbackQuestions(hidden: HiddenDetail[]): Question[] {
-  const order = hidden.map((d, i) => ({ i, w: d.weight })).sort((a, b) => b.w - a.w).slice(0, 5);
-  const high = order.filter((d) => d.w === 3).map((d) => d.i);
-  const rest = order.filter((d) => d.w < 3).map((d) => d.i);
-  const qs: Question[] = [];
-  if (high.length) qs.push({
-    id: 'q1', question: 'What makes it different from others like it?',
-    hint: 'e.g. a mark, damage, writing, a decoration, something attached or inside', detail_indexes: high,
-  });
-  if (rest.length) qs.push({
-    id: `q${qs.length + 1}`, question: 'Describe it in as much detail as you can: make, size, parts, materials.',
-    hint: 'Say “not sure” for anything you don’t remember.', detail_indexes: rest,
-  });
-  return qs;
+  // One detail per question, top 3 by weight. Generic wording so nothing leaks; grading reads all answers.
+  const TEXTS = [
+    { question: 'What makes it different from others like it?', hint: 'e.g. a mark, damage, writing, a decoration, something attached or inside' },
+    { question: 'What else would help you recognize it?', hint: 'e.g. a part, a color, a material, something added to it' },
+    { question: 'Describe it in as much detail as you can: make, size, parts, materials.', hint: 'Say “not sure” for anything you don’t remember.' },
+  ];
+  return hidden
+    .map((d, i) => ({ i, w: d.weight }))
+    .sort((a, b) => b.w - a.w || a.i - b.i)
+    .slice(0, 3)
+    .map((d, n) => ({ id: `q${n + 1}`, ...TEXTS[n], detail_indexes: [d.i] }));
 }
 
 /** Index of the most distinctive detail: highest weight, earliest listed. */
@@ -454,7 +459,7 @@ const GRADE_SYSTEM = `You grade a claimant's answers for FindOn, a USC lost-and-
 For EACH detail index listed as covered, return exactly one verdict, judged by meaning, not exact words ("rose decal" = "pink flower sticker"; "silver" ≈ "grey"):
 - match: the claimant correctly describes the distinctive core of this detail (any of their answers or their earlier lost report may count). Leaving out minor attributes (exact shade, exact position, exact size) is still a match: "Fight On sticker" matches "white Fight On sticker near the bottom".
 - partial: they get only a generic part of it, missing what makes it distinctive ("it has a straw" for "green straw lid"; "a sticker" for "pink flower sticker").
-- not_mentioned: they don't address it, say they don't know, or give something too generic to tell ("normal lid").
+- not_mentioned: they don't address it, say they don't know, or give something too generic to tell ("normal lid"). Hedged or list-style guesses that don't commit ("maybe some initials, or no text at all"; "a sticker or a scratch or a keychain") are not_mentioned even if one option happens to be right: listing possibilities is what a guesser does.
 - contradicts: they confidently state something specific that conflicts with it ("blue screw-top lid" for "green straw lid"; "no stickers" when there is one).
 
 reason: one or two plain sentences for the human reviewer summarizing what matched and what didn't.

@@ -1,0 +1,4 @@
+[
+  { "id": "dps", "name": "DPS Lost & Found", "building_id": "dps", "hours_text": "Mon–Fri 9 AM – 5 PM" },
+  { "id": "its", "name": "ITS Help Desk, Leavey Library Basement", "building_id": "lvl", "hours_text": "" }
+]
