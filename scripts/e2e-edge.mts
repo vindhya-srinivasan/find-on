@@ -23,8 +23,8 @@ function expect(name: string, ok: boolean, detail = '') {
   console.log(`  ${ok ? '✅' : '❌'} ${name}${detail ? `   (${detail})` : ''}`);
 }
 const section = (t: string) => console.log(`\n━━ ${t}`);
-// Free tier ≈ 20 AI calls/min across the rotation; pause after each AI-backed request so we test behavior, not quota.
-const aiPause = () => new Promise((r) => setTimeout(r, Number(process.env.E2E_AI_PAUSE_MS ?? 3500)));
+// Optional pause after each AI-backed request (E2E_AI_PAUSE_MS) if the API key is rate limited.
+const aiPause = () => new Promise((r) => setTimeout(r, Number(process.env.E2E_AI_PAUSE_MS ?? 0)));
 /** Server-side truth for a claim (score is null when grading fell back to human review). */
 async function diag(claimId: string) {
   const c = (await admin.from('claims').select('status, score, flags, reason').eq('id', claimId).single()).data;

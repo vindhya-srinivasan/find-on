@@ -1,9 +1,9 @@
 // Person 3: AI test script.
-//   npm run test:ai              → offline checks (scoring, prefilter, categories) + live Gemini checks if a key is set
+//   npm run test:ai              → offline checks (scoring, prefilter, categories) + live Claude checks if a key is set
 //   npm run test:ai -- --offline → offline checks only (no API calls, free)
 //   npm run test:ai -- --photos  → also run analyzePhoto on every image in data/seed/photos/ (or PHOTOS_DIR)
 //   npm run test:ai -- --photos-only → just the photos
-// Needs GEMINI_API_KEY in .env.local (or the environment) for the live part.
+// Needs ANTHROPIC_API_KEY in .env.local (or the environment) for the live part.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -193,7 +193,7 @@ async function live() {
 async function photos(ai: typeof import('@/lib/ai')) {
   section('analyzePhoto on data/seed/photos');
   const dir = path.resolve(process.env.PHOTOS_DIR || 'data/seed/photos');
-  const files = existsSync(dir) ? readdirSync(dir).filter((f) => /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(f)) : [];
+  const files = existsSync(dir) ? readdirSync(dir).filter((f) => /\.(jpe?g|png|webp|gif)$/i.test(f)) : [];
   if (files.length === 0) return console.log('  (no photos yet — Person 4 adds them to data/seed/photos/)');
   for (const f of files) {
     const ext = path.extname(f).slice(1).toLowerCase();
@@ -216,10 +216,8 @@ async function main() {
   await offline();
   if (OFFLINE) return;
   try { process.loadEnvFile('.env.local'); } catch { /* no .env.local */ }
-  // Free tier: let calls queue up to 70 s for a free model instead of failing (the app itself waits ≤12 s).
-  process.env.AI_MAX_WAIT_MS ??= '70000';
-  if (!process.env.GEMINI_API_KEY) {
-    console.log('\n(no GEMINI_API_KEY — skipping live Gemini tests; add it to .env.local)');
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.log('\n(no ANTHROPIC_API_KEY — skipping live Claude tests; add it to .env.local)');
     return;
   }
   if (PHOTOS_ONLY) await photos(await import('@/lib/ai'));

@@ -74,8 +74,8 @@ function publicTitle(color: string, category: string, building: string): string 
   return `${cap(c && c !== 'unknown' ? `${c} ${cat}` : cat)} · ${building}`;
 }
 
-// HEIC/HEIF: iPhone photos the browser couldn't convert to JPEG (Gemini reads them natively).
-const ALLOWED_MEDIA = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'] as const;
+// Claude accepts these four; /api/found/analyze already converts every upload to JPEG (incl. iPhone HEIC).
+const ALLOWED_MEDIA = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
 type ImageMedia = (typeof ALLOWED_MEDIA)[number];
 
 // ---------- Task 1: analyze found photo ----------
@@ -130,7 +130,7 @@ export async function analyzePhoto(input: {
   const content: AiPart[] = images.map((img) => {
     const media = img.mediaType.toLowerCase().replace('image/jpg', 'image/jpeg');
     if (!ALLOWED_MEDIA.includes(media as ImageMedia)) {
-      throw new AiError(`Unsupported image type ${img.mediaType} (use JPEG, PNG, WebP or HEIC)`, 'analyzePhoto');
+      throw new AiError(`Unsupported image type ${img.mediaType} (use JPEG, PNG, GIF or WebP)`, 'analyzePhoto');
     }
     return { image: { base64: img.base64, mediaType: media } };
   });
