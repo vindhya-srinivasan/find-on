@@ -1,1 +1,27 @@
-[]
+[
+  {"id": "thh", "name": "Taper Hall (THH)", "lat": 34.02218, "lng": -118.284493, "type": "academic"},
+  {"id": "sal", "name": "Salvatori Computer Science Center (SAL)", "lat": 34.01949, "lng": -118.289501, "type": "academic"},
+  {"id": "rth", "name": "Ronald Tutor Hall (RTH)", "lat": 34.020085, "lng": -118.289852, "type": "academic"},
+  {"id": "gfs", "name": "Grace Ford Salvatori Hall (GFS)", "lat": 34.021307, "lng": -118.28803, "type": "academic"},
+  {"id": "sgm", "name": "Seeley G. Mudd Building (SGM)", "lat": 34.02147, "lng": -118.288977, "type": "academic"},
+  {"id": "kap", "name": "Kaprielian Hall (KAP)", "lat": 34.022413, "lng": -118.291024, "type": "academic"},
+  {"id": "wph", "name": "Waite Phillips Hall (WPH)", "lat": 34.021956, "lng": -118.283825, "type": "academic"},
+  {"id": "sos", "name": "Social Sciences Building (SOS)", "lat": 34.021581, "lng": -118.283763, "type": "academic"},
+  {"id": "dmc", "name": "Medicine Crow Center (DMC, formerly VKC)", "lat": 34.021163, "lng": -118.283998, "type": "academic"},
+  {"id": "slh", "name": "Stauffer Science Lecture Hall (SLH)", "lat": 34.019595, "lng": -118.287608, "type": "academic"},
+  {"id": "ohe", "name": "Olin Hall of Engineering (OHE)", "lat": 34.020691, "lng": -118.289506, "type": "academic"},
+  {"id": "vhe", "name": "Vivian Hall of Engineering (VHE)", "lat": 34.020143, "lng": -118.288251, "type": "academic"},
+  {"id": "eeb", "name": "Hughes Electrical Engineering Center (EEB)", "lat": 34.019715, "lng": -118.290046, "type": "academic"},
+  {"id": "phe", "name": "Powell Hall of Engineering (PHE)", "lat": 34.019191, "lng": -118.288859, "type": "academic"},
+  {"id": "bhe", "name": "Biegler Hall of Engineering (BHE)", "lat": 34.020537, "lng": -118.288538, "type": "academic"},
+  {"id": "mhp", "name": "Mudd Hall of Philosophy (MHP)", "lat": 34.018665, "lng": -118.286807, "type": "academic"},
+  {"id": "zhs", "name": "Zumberge Hall of Science (ZHS)", "lat": 34.019299, "lng": -118.286349, "type": "academic"},
+  {"id": "ssc", "name": "Seaver Science Center (SSC)", "lat": 34.019805, "lng": -118.289243, "type": "academic"},
+  {"id": "mcb", "name": "Michelson Center for Convergent Bioscience (MCB)", "lat": 34.021736, "lng": -118.289612, "type": "academic"},
+  {"id": "wah", "name": "Watt Hall of Architecture (WAH)", "lat": 34.019119, "lng": -118.288097, "type": "academic"},
+  {"id": "hoh", "name": "Hoffman Hall, Marshall (HOH)", "lat": 34.018741, "lng": -118.285242, "type": "academic"},
+  {"id": "jff", "name": "Fertitta Hall, Marshall (JFF)", "lat": 34.018693, "lng": -118.282569, "type": "academic"},
+  {"id": "asc", "name": "Annenberg School for Communication (ASC)", "lat": 34.02199, "lng": -118.286117, "type": "academic"},
+  {"id": "ann", "name": "Wallis Annenberg Hall (ANN)", "lat": 34.020801, "lng": -118.287047, "type": "academic"},
+  {"id": "sca", "name": "School of Cinematic Arts (SCA)", "lat": 34.023416, "lng": -118.286439, "type": "academic"}
+]
