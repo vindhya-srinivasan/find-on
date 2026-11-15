@@ -42,7 +42,7 @@ export function PhotoInput({ files, onChange, max = 3, required = true }:
           </button>
         )}
       </div>
-      <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple aria-label="Add photos" className="hidden" onChange={(e) => add(e.target.files)} />
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple aria-label="Add photos" className="hidden" onChange={(e) => add(e.target.files)} />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { FlowBottomSpace, PrimaryAction, StickyAction } from '@/components/Flow'
 import { Button, Card, ErrorText, LinkButton, Loading, PageTitle, inputClass } from '@/components/ui';
 import { shortDate, timeAgo } from '@/components/format';
 import { Thumb } from '@/components/Thumb';
+import { ReviewExtras } from '@/components/ReviewExtras';
 import { useBuildings } from '@/components/useBuildings';
 
 export default function ClaimPageRoute() {
@@ -268,6 +269,7 @@ function Review({ claim, onDone }: { claim: ClaimDetail; onDone: () => void }) {
           <p className="text-sm"><span className="font-semibold">Match score: {claim.score}/100.</span> {claim.reason}</p>
         </Card>
       )}
+      <ReviewExtras claim={claim} />
       <div className="space-y-3">
         {claim.answers?.map((a, i) => (
           <Card key={i}>
