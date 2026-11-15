@@ -36,18 +36,31 @@ const STOPWORDS = new Set([
 
 function words4(text: string): Set<string> {
   const out = new Set<string>();
-  for (const w of text.toLowerCase().match(/[a-z0-9']+/g) ?? []) {
-    const clean = w.replace(/'s$/, '');
+  for (const w of text.toLowerCase().match(/[\p{L}\p{N}']+/gu) ?? []) {
+    const clean = w.replace(/'s$/, '').replaceAll("'", '');
     if (clean.length >= 4 && !STOPWORDS.has(clean)) out.add(clean);
   }
   return out;
 }
 
-/** Words in `text` that also appear in `secret` (4+ letters, not stopwords, not in `allowed`). */
+// Same word or same stem (sticker/stickers, dent/dented, engraving/engraved). Matches lib/db.ts near().
+const sameStem = (w: string, b: string) =>
+  w.startsWith(b) || b.startsWith(w) || (w.length >= 5 && b.length >= 5 && w.slice(0, 5) === b.slice(0, 5));
+
+/** Words in `text` that share a stem with a word in `secret` (4+ letters, not stopwords, not in `allowed`). */
 function leakedWords(text: string, secret: string, allowed = ''): string[] {
-  const s = words4(secret);
+  const s = [...words4(secret)];
   const ok = words4(allowed);
-  return [...words4(text)].filter((w) => s.has(w) && !ok.has(w));
+  return [...words4(text)].filter((w) => !ok.has(w) && s.some((b) => sameStem(w, b)));
+}
+
+/**
+ * Leak check for verification questions/hints against ALL of an item's hidden details.
+ * Ignores filler and words that only name the kind of detail ("text", "markings", "front").
+ * Returns the offending words (empty = safe). Person 2 can use this in safeQuestions.
+ */
+export function questionLeaks(text: string, hidden: HiddenDetail[], allowed = ''): string[] {
+  return leakedWords(text, hidden.map((d) => d.detail).join(' '), allowed);
 }
 
 const VALUABLE_GROUPS = new Set(['wallet', 'keys', 'phone', 'computer']);
@@ -323,8 +336,8 @@ function checkQuestions(
   let rejected = 0;
   for (const q of raw) {
     const idx = [...new Set(q.detail_indexes)].filter((i) => Number.isInteger(i) && i >= 0 && i < hidden.length && !used.has(i));
-    const secret = idx.map((i) => hidden[i].detail).join(' ');
-    const leaks = [...leakedWords(q.question, secret), ...leakedWords(q.hint, secret)];
+    // Check against ALL hidden details: a question about the lid must not reveal the sticker either.
+    const leaks = questionLeaks(`${q.question} ${q.hint}`, hidden);
     const why =
       idx.length === 0 ? 'no valid detail_indexes' : !q.question.trim() ? 'empty' :
       YES_NO.test(q.question) ? 'yes/no' : leaks.length ? `leaks "${leaks.join('", "')}"` : '';
