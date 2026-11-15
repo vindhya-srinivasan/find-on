@@ -94,11 +94,13 @@ const PHOTO_SYSTEM = `You analyze photos of items found on the USC campus for Fi
 The public listing will show ONLY category, main color and building. Everything that could prove ownership must go into hidden_details, which only a verified owner ever sees.
 
 Return:
-- is_valid_item: false if the photo is too blurry to identify, shows no physical belonging, or shows food, drinks, trash, perishables, or anything dangerous (weapons, drugs, drug paraphernalia). Otherwise true.
+- is_valid_item: false if the photo is too blurry to identify, shows no physical belonging, or shows food, drinks, trash, perishables, medication, or anything dangerous (weapons, drugs, drug paraphernalia). Otherwise true.
 - reject_reason: when is_valid_item is false, one short friendly sentence for the finder:
   * blurry / not an item → ask them to retake the photo.
   * food, trash, perishables → "FindOn is for belongings, not food or trash."
   * weapons, drugs or anything dangerous → tell them not to post it and to contact USC DPS directly at (213) 740-4321.
+  * medication (pill bottles, prescriptions, inhalers, insulin) → tell them not to post it (it shows private health information) and to hand it to USC DPS directly at (213) 740-4321.
+  Everyday tools and stationery (scissors, rulers, pens, staplers, calculators) are ordinary belongings, not dangerous: treat them as valid items.
   When valid, null.
 - category: short and generic, lowercase. Use one of these if it fits: ${CATEGORIES.join(', ')}. If none fits, use a short generic noun (e.g. "remote control", "speaker"); never "other" or "item".
 - color: the single main color, lowercase (e.g. "black", "grey", "navy blue").
@@ -110,7 +112,7 @@ Return:
   Weight 3 only for things unique to THIS unit (added, personal, worn or damaged). Features every unit of that model has (factory buttons, standard logos, stock colors) are weight 2 at most, even if they look distinctive.
   Include the brand as its own weight-2 detail when known. Describe each detail concretely ("pink flower sticker near the base", not "has a sticker").
   Only quote text, numbers or initials you can read with certainty; if any character is unclear, describe it generally ("a printed ID number", "embossed initials") so a real owner is never marked wrong by a misreading.
-  Privacy: never describe a person's face, body, gender or other appearance (e.g. on an ID photo, say only "has a portrait photo"). If a screen is on, do not record names, messages, notifications or the time shown on it; describe only lasting things like the wallpaper or case.
+  Privacy: never describe a person's face, body, gender or other appearance (e.g. on an ID photo, say only "has a portrait photo"). If a screen is on, do not record anything displayed on it (names, messages, notifications, time, lock or passcode screens); describe only lasting things like the case, band or damage.
   For ID cards, credit/debit cards, passports and documents: names, numbers and photos printed on them go ONLY here (and never repeat full card or ID numbers — last 4 digits at most).
 - is_valuable: true for wallet, ID card, keys, phone, laptop, tablet, credit/debit card, passport.
 
