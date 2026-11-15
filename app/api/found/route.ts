@@ -39,8 +39,10 @@ export async function POST(req: Request) {
     const verifiability =
       hidden_details.length < 2 || !hidden_details.some((d) => d.weight === 3) ? 'low' : analysis.verifiability;
 
-    let held_at_desk_id: string | null = null;
-    if (returnMethod === 'desk') {
+    // Desk staff posting a desk item are already holding it (spec edge case).
+    const deskHeld = me.role === 'desk' && returnMethod === 'desk' && !!me.desk_id;
+    let held_at_desk_id: string | null = deskHeld ? me.desk_id : null;
+    if (returnMethod === 'desk' && !deskHeld) {
       const desk = await db.from('desks').select('id').ilike('name', '%dps%').order('id').limit(1).maybeSingle();
       if (desk.error) return FAIL();
       held_at_desk_id = desk.data?.id ?? null;
@@ -72,7 +74,7 @@ export async function POST(req: Request) {
       return_method: returnMethod,
       held_at_desk_id,
       finder_availability: returnMethod === 'desk' ? null : availability || null,
-      status: returnMethod === 'desk' ? 'en_route_to_desk' : 'with_finder',
+      status: deskHeld ? 'at_desk' : returnMethod === 'desk' ? 'en_route_to_desk' : 'with_finder',
     };
 
     let row: FoundItemRow | null = null;
