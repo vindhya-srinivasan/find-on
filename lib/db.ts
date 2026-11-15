@@ -8,7 +8,7 @@ import { rankMatches } from '@/lib/ai';
 import { prefilter } from '@/lib/matching/prefilter';
 import type { AuthedUser } from '@/lib/supabase/auth';
 import type {
-  Building, ClaimDetail, ClaimFlag, ClaimStatus, FoundItemRow, HiddenDetail, ItemStatus, LostReportRow, MatchResult, MatchWithItem,
+  Building, ClaimDetail, ClaimFlag, ClaimStatus, FoundItemRow, HiddenDetail, ItemDetail, ItemStatus, LostReportRow, MatchResult, MatchWithItem,
   PublicFoundItem, Question, ReturnDetails,
 } from '@/types';
 
@@ -24,8 +24,17 @@ export function makePickupCode(): string {
   return String(randomInt(0, 1000000)).padStart(6, '0');
 }
 
+type PublicItemSrc = Pick<
+  FoundItemRow,
+  'id' | 'item_code' | 'public_title' | 'category' | 'color' | 'found_building_id' | 'found_at' | 'status' | 'return_method' | 'held_at_desk_id'
+>;
+export type PublicItemRow = PublicItemSrc & Pick<FoundItemRow, 'blurred_thumb_path'>;
+/** Exactly the columns publicItemOf reads, so list queries never pull hidden_details or photo_paths. */
+export const PUBLIC_ITEM_COLS =
+  'id, item_code, public_title, category, color, found_building_id, found_at, status, return_method, held_at_desk_id, blurred_thumb_path';
+
 // Explicit copy, never spread: everything not listed here (hidden_details, photo_paths, finder_id, ...) stays server-side.
-export function toPublicFoundItem(row: FoundItemRow, thumbUrl: string): PublicFoundItem {
+export function toPublicFoundItem(row: PublicItemSrc, thumbUrl: string): PublicFoundItem {
   return {
     id: row.id,
     item_code: row.item_code,
@@ -384,13 +393,60 @@ export async function dpsDeskId(): Promise<string | null> {
   return data?.id ?? null;
 }
 
-export async function publicItemOf(row: FoundItemRow): Promise<PublicFoundItem> {
+export async function publicItemOf(row: PublicItemRow): Promise<PublicFoundItem> {
   return toPublicFoundItem(row, await signedUrl(row.blurred_thumb_path, 3600));
+}
+
+export async function publicItemsOf(rows: PublicItemRow[]): Promise<Map<string, PublicFoundItem>> {
+  const unique = [...new Map(rows.map((r) => [r.id, r])).values()];
+  // shortcut: one signing call per item, move to a batch signer if lists grow
+  return new Map((await Promise.all(unique.map(publicItemOf))).map((p) => [p.id, p]));
 }
 
 export type ClaimDetailOut = ClaimDetail & {
   hidden_details?: HiddenDetail[]; landmark?: string | null; found_at?: string; claimant_name?: string;
 };
+
+export type ItemDetailOut = ItemDetail & { found_at?: string; pending_claims?: ClaimDetailOut[] };
+
+/** Finder / desk review fields. Answers carry question text only, never detail_indexes. */
+export function reviewerFields(claim: ClaimRow): Pick<ClaimDetail, 'answers' | 'score' | 'reason' | 'flags'> {
+  const asked = new Map((claim.questions ?? []).map((q) => [q.id, q.question]));
+  return {
+    ...(claim.answers && { answers: claim.answers.map((a) => ({ question: asked.get(a.question_id) ?? '', answer: a.answer })) }),
+    ...(claim.score !== null && { score: claim.score }),
+    ...(claim.reason && { reason: claim.reason }),
+    flags: claim.flags ?? [],
+  };
+}
+
+/** For rejected claims: first attempt may retry 24 h after it was made; second attempt is locked (null). */
+export function retryAfter(claim: ClaimRow): string | null {
+  return claim.attempt_no === 1 ? new Date(Date.parse(claim.created_at) + DAY_MS).toISOString() : null;
+}
+
+/** Lean reviewer list (no return_details). Claims whose item is missing from `items` are skipped. */
+export async function reviewerClaimList(
+  viewer: 'finder' | 'desk',
+  claims: ClaimRow[],
+  items: Map<string, PublicFoundItem>,
+): Promise<ClaimDetailOut[]> {
+  const shown = claims.filter((c) => items.has(c.found_item_id));
+  // Finder can't see who claims until verification passes; desk staff always can.
+  const named = (c: ClaimRow) => viewer === 'desk' || PASSED_CLAIM.includes(c.status);
+  const ids = [...new Set(shown.filter(named).map((c) => c.claimant_id))];
+  const names = new Map<string, string>();
+  if (ids.length) {
+    const { data, error } = await supabaseAdmin().from('users').select('id, first_name, last_initial').in('id', ids);
+    if (error) throw new Error('Could not load users');
+    for (const u of data ?? []) names.set(u.id, displayName(u));
+  }
+  return shown.map((c) => ({
+    id: c.id, status: c.status, viewer, item: items.get(c.found_item_id)!, created_at: c.created_at,
+    ...reviewerFields(c),
+    ...(named(c) && { claimant_name: names.get(c.claimant_id) ?? 'Someone' }),
+  }));
+}
 
 async function userName(id: string): Promise<string> {
   const { data, error } = await supabaseAdmin().from('users').select('first_name, last_initial').eq('id', id).maybeSingle();
@@ -422,9 +478,7 @@ export async function buildClaimDetail(
 
   if (viewer === 'claimant') {
     if (claim.status === 'awaiting_answers') out.questions = (claim.questions ?? []).map(copyQuestion);
-    if (claim.status === 'rejected') {
-      out.retry_after = claim.attempt_no === 1 ? new Date(Date.parse(claim.created_at) + DAY_MS).toISOString() : null;
-    }
+    if (claim.status === 'rejected') out.retry_after = retryAfter(claim);
     if (passed) {
       if (claim.pickup_code && PASSED_CLAIM.includes(claim.status)) out.pickup_code = claim.pickup_code;
       out.full_photo_urls = (await Promise.all(item.photo_paths.map((p) => signedUrl(p, 600)))).filter(Boolean);
@@ -437,11 +491,7 @@ export async function buildClaimDetail(
   }
 
   // Finder / desk: never the pickup code, emails or photo paths.
-  const asked = new Map((claim.questions ?? []).map((q) => [q.id, q.question]));
-  if (claim.answers) out.answers = claim.answers.map((a) => ({ question: asked.get(a.question_id) ?? '', answer: a.answer }));
-  if (claim.score !== null) out.score = claim.score;
-  if (claim.reason) out.reason = claim.reason;
-  out.flags = claim.flags ?? [];
+  Object.assign(out, reviewerFields(claim));
   out.return_details = await returnDetails(item);
   // Finder can't see who claims until verification passes; desk staff always can.
   if (viewer === 'desk' || passed) out.claimant_name = await userName(claim.claimant_id);
