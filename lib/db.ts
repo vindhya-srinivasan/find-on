@@ -289,6 +289,7 @@ export type ClaimRow = {
   answers: { question_id: string; answer: string }[] | null;
   score: number | null; reason: string | null; flags: ClaimFlag[];
   status: ClaimStatus; pickup_code: string | null; attempt_no: number; created_at: string;
+  proof_photo_path?: string | null; // server-only; optional: absent before 0002 and in explicit column lists
 };
 
 export const PASSED_CLAIM: ClaimStatus[] = ['likely_owner', 'approved'];
@@ -414,6 +415,7 @@ export async function publicItemsOf(rows: PublicItemRow[]): Promise<Map<string, 
 
 export type ClaimDetailOut = ClaimDetail & {
   hidden_details?: HiddenDetail[]; landmark?: string | null; found_at?: string; claimant_name?: string;
+  proof_photo_url?: string; owner_photo_url?: string;
 };
 
 export type ItemDetailOut = ItemDetail & { found_at?: string; pending_claims?: ClaimDetailOut[] };
@@ -504,5 +506,109 @@ export async function buildClaimDetail(
   out.return_details = await returnDetails(item);
   // Finder can't see who claims until verification passes; desk staff always can.
   if (viewer === 'desk' || passed) out.claimant_name = await userName(claim.claimant_id);
+  // Owner photos only to this claim's reviewer, only while it waits for review.
+  if (claim.status === 'needs_review') {
+    const { data: lost } = await supabaseAdmin().from('lost_reports').select('owner_photo_path').eq('id', claim.lost_report_id).maybeSingle();
+    const [proof, owner] = await Promise.all([
+      claim.proof_photo_path ? signedUrl(claim.proof_photo_path, 600) : '',
+      lost?.owner_photo_path ? signedUrl(lost.owner_photo_path, 600) : '',
+    ]);
+    if (proof) out.proof_photo_url = proof;
+    if (owner) out.owner_photo_url = owner;
+  }
   return out;
+}
+
+// ---- Lazy sweep (Phase F): unclaimed after 30 days + finder reminders ----
+
+type SweepItem = Pick<FoundItemRow, 'id' | 'finder_id' | 'item_code' | 'public_title' | 'status' | 'created_at'>;
+const sweepState = globalThis as typeof globalThis & { __findonSweepAt?: number; __findonSweepRunning?: boolean };
+
+/** Never throws. No userId = global sweep, at most once per 5 min. */
+export async function sweepStale(userId?: string): Promise<void> {
+  // One lock for every sweep (global and per-user overlap on the same items); a skipped sweep catches up next request.
+  // shortcut: in-process lock, add a unique index on notifications(user_id, link) if this runs on more than one instance
+  if (sweepState.__findonSweepRunning) return;
+  const now = Date.now();
+  if (!userId) {
+    if (now - (sweepState.__findonSweepAt ?? 0) < 5 * 60_000) return;
+    sweepState.__findonSweepAt = now;
+  }
+  sweepState.__findonSweepRunning = true;
+  try {
+    const fast = process.env.FINDON_FAST_CLOCK === '1';
+    const DAY = fast ? 60_000 : 86_400_000;
+    const HOUR = fast ? 60_000 : 3_600_000;
+    const UNCLAIMED = 30 * DAY, HELD_NUDGE = 3 * DAY, DESK_NUDGE = 48 * HOUR;
+    // shortcut: age from created_at, an item switched to the desk later gets its reminder early
+    const older = (i: SweepItem, ms: number) => now - Date.parse(i.created_at) > ms;
+    const db = supabaseAdmin();
+
+    let q = db
+      .from('found_items')
+      .select('id, finder_id, item_code, public_title, status, created_at')
+      .in('status', CLAIMABLE)
+      .lt('created_at', new Date(now - Math.min(UNCLAIMED, HELD_NUDGE, DESK_NUDGE)).toISOString())
+      .order('created_at', { ascending: true })
+      .limit(200);
+    if (userId) q = q.eq('finder_id', userId);
+    const { data, error } = await q;
+    if (error) throw error;
+    const items = (data ?? []) as SweepItem[];
+    if (!items.length) return;
+
+    const { data: claims, error: cErr } = await db
+      .from('claims')
+      .select('found_item_id, status')
+      .in('found_item_id', items.map((i) => i.id))
+      .in('status', ['needs_review', ...PASSED_CLAIM]);
+    if (cErr) throw cErr;
+    const busy = new Set((claims ?? []).map((c) => c.found_item_id as string));
+    const passed = new Set((claims ?? []).filter((c) => PASSED_CLAIM.includes(c.status)).map((c) => c.found_item_id as string));
+
+    const stale = items.filter((i) => older(i, UNCLAIMED) && !busy.has(i.id)).map((i) => i.id);
+    if (stale.length) {
+      const { data: marked, error: uErr } = await db.from('found_items').update({ status: 'unclaimed' }).in('id', stale).in('status', CLAIMABLE).select('id');
+      if (uErr) throw uErr;
+      // Open claims can't be answered or proven on an unclaimed item, so close them instead of leaving them stuck.
+      if (marked?.length) {
+        const { error: rErr } = await db
+          .from('claims')
+          .update({ status: 'rejected', pickup_code: null })
+          .in('found_item_id', marked.map((m) => m.id))
+          .in('status', ['awaiting_answers', 'needs_review']);
+        if (rErr) throw rErr;
+      }
+    }
+
+    const nudges = items
+      .filter((i) => !stale.includes(i.id))
+      .flatMap((i) => {
+        if (i.status === 'with_finder' && older(i, HELD_NUDGE) && !passed.has(i.id)) {
+          return [{ user_id: i.finder_id, text: `Still holding ${i.public_title}? Drop it at DPS so it's not stuck with you?`, link: `/my?nudge=held-${i.item_code}` }];
+        }
+        if (i.status === 'en_route_to_desk' && older(i, DESK_NUDGE)) {
+          return [{ user_id: i.finder_id, text: `Reminder: ${i.public_title} (${i.item_code}) hasn't reached the desk yet.`, link: `/my?nudge=desk-${i.item_code}` }];
+        }
+        return [];
+      });
+    if (!nudges.length) return;
+
+    const { data: sent, error: sErr } = await db
+      .from('notifications')
+      .select('user_id, link')
+      .in('user_id', [...new Set(nudges.map((n) => n.user_id))])
+      .in('link', nudges.map((n) => n.link));
+    if (sErr) throw sErr;
+    const have = new Set((sent ?? []).map((n) => `${n.user_id} ${n.link}`));
+    const fresh = nudges.filter((n) => !have.has(`${n.user_id} ${n.link}`));
+    if (fresh.length) {
+      const { error: iErr } = await db.from('notifications').insert(fresh);
+      if (iErr) throw iErr;
+    }
+  } catch (e) {
+    console.warn('sweepStale failed', e);
+  } finally {
+    sweepState.__findonSweepRunning = false;
+  }
 }

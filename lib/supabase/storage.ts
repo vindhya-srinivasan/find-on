@@ -52,11 +52,20 @@ export async function savePhotos(
   return { photo_paths, blurred_thumb_path };
 }
 
-/** Owner's optional lost-report photo. Never sent to a browser. */
+/** Owner's optional lost-report photo. Only the claim's reviewer sees it (short-lived signed URL, while needs_review). */
 export async function saveLostPhoto(reportId: string, file: File): Promise<string> {
   const jpeg = await toJpeg(file, 2000, 82);
   const path = `lost/${reportId}/photo.jpg`;
   const { error } = await supabaseAdmin().storage.from(BUCKET).upload(path, jpeg, { contentType: 'image/jpeg', upsert: false });
+  if (error) throw new Error(`Photo upload failed: ${error.message}`);
+  return path;
+}
+
+/** Claimant's proof photo; a re-upload replaces it. Remove with deletePhotos([path]). */
+export async function saveProofPhoto(claimId: string, file: File): Promise<string> {
+  const jpeg = await toJpeg(file, 2000, 82);
+  const path = `claims/${claimId}/proof.jpg`;
+  const { error } = await supabaseAdmin().storage.from(BUCKET).upload(path, jpeg, { contentType: 'image/jpeg', upsert: true });
   if (error) throw new Error(`Photo upload failed: ${error.message}`);
   return path;
 }
