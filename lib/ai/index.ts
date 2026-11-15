@@ -327,7 +327,8 @@ const QuestionsSchema = z.object({
 const QUESTIONS_SYSTEM = `You write ownership-verification questions for FindOn, a USC lost-and-found app. A person claims a found item; they must prove it is theirs by describing details only the real owner would know. They can see only the category, color and building — never the hidden details below.
 
 Write 2 or 3 questions:
-- Cover the highest-weight details first. Each question lists the detail_indexes it covers (each index used at most once overall; cover at most 5 details in total).
+- Each question is about exactly ONE detail: detail_indexes has a single index. People answer one thing per question, so never bundle two details into one question.
+- Pick the highest-weight details first; never ask about the same detail twice.
 - Open-ended only ("Describe any decorations or markings on it."). NEVER yes/no, never multiple choice, never "Is it…", "Does it have…".
 - NEVER use any word from the hidden details (or a giveaway synonym) in the question or hint. Ask about the kind of thing ("markings", "what was inside", "the top part"), not the answer ("sticker", "dent", "green").
 - Keep each question short and natural for a phone screen.
@@ -344,7 +345,11 @@ function checkQuestions(
   const leaked = new Set<string>();
   let rejected = 0;
   for (const q of raw) {
-    const idx = [...new Set(q.detail_indexes)].filter((i) => Number.isInteger(i) && i >= 0 && i < hidden.length && !used.has(i));
+    // One detail per question: an honest owner answers one thing, so a bundled second detail would cost them points.
+    const idx = [...new Set(q.detail_indexes)]
+      .filter((i) => Number.isInteger(i) && i >= 0 && i < hidden.length && !used.has(i))
+      .sort((a, b) => hidden[b].weight - hidden[a].weight)
+      .slice(0, 1);
     // Check against ALL hidden details: a question about the lid must not reveal the sticker either.
     const leaks = questionLeaks(`${q.question} ${q.hint}`, hidden);
     const why =
@@ -365,19 +370,17 @@ function checkQuestions(
 
 /** Code-only questions when AI fails. Generic, open-ended, never contain detail words. */
 function fallbackQuestions(hidden: HiddenDetail[]): Question[] {
-  const order = hidden.map((d, i) => ({ i, w: d.weight })).sort((a, b) => b.w - a.w).slice(0, 5);
-  const high = order.filter((d) => d.w === 3).map((d) => d.i);
-  const rest = order.filter((d) => d.w < 3).map((d) => d.i);
-  const qs: Question[] = [];
-  if (high.length) qs.push({
-    id: 'q1', question: 'What makes it different from others like it?',
-    hint: 'e.g. a mark, damage, writing, a decoration, something attached or inside', detail_indexes: high,
-  });
-  if (rest.length) qs.push({
-    id: `q${qs.length + 1}`, question: 'Describe it in as much detail as you can: make, size, parts, materials.',
-    hint: 'Say “not sure” for anything you don’t remember.', detail_indexes: rest,
-  });
-  return qs;
+  // One detail per question, top 3 by weight. Generic wording so nothing leaks; grading reads all answers.
+  const TEXTS = [
+    { question: 'What makes it different from others like it?', hint: 'e.g. a mark, damage, writing, a decoration, something attached or inside' },
+    { question: 'What else would help you recognize it?', hint: 'e.g. a part, a color, a material, something added to it' },
+    { question: 'Describe it in as much detail as you can: make, size, parts, materials.', hint: 'Say “not sure” for anything you don’t remember.' },
+  ];
+  return hidden
+    .map((d, i) => ({ i, w: d.weight }))
+    .sort((a, b) => b.w - a.w || a.i - b.i)
+    .slice(0, 3)
+    .map((d, n) => ({ id: `q${n + 1}`, ...TEXTS[n], detail_indexes: [d.i] }));
 }
 
 /** Index of the most distinctive detail: highest weight, earliest listed. */
@@ -454,7 +457,7 @@ const GRADE_SYSTEM = `You grade a claimant's answers for FindOn, a USC lost-and-
 For EACH detail index listed as covered, return exactly one verdict, judged by meaning, not exact words ("rose decal" = "pink flower sticker"; "silver" ≈ "grey"):
 - match: the claimant correctly describes the distinctive core of this detail (any of their answers or their earlier lost report may count). Leaving out minor attributes (exact shade, exact position, exact size) is still a match: "Fight On sticker" matches "white Fight On sticker near the bottom".
 - partial: they get only a generic part of it, missing what makes it distinctive ("it has a straw" for "green straw lid"; "a sticker" for "pink flower sticker").
-- not_mentioned: they don't address it, say they don't know, or give something too generic to tell ("normal lid").
+- not_mentioned: they don't address it, say they don't know, or give something too generic to tell ("normal lid"). Hedged or list-style guesses that don't commit ("maybe some initials, or no text at all"; "a sticker or a scratch or a keychain") are not_mentioned even if one option happens to be right: listing possibilities is what a guesser does.
 - contradicts: they confidently state something specific that conflicts with it ("blue screw-top lid" for "green straw lid"; "no stickers" when there is one).
 
 reason: one or two plain sentences for the human reviewer summarizing what matched and what didn't.
