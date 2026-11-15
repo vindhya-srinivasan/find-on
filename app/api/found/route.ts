@@ -1,6 +1,6 @@
 // Person 2: save a found item, then run matching. Contract: Team Tasks > API routes.
 import { FoundForm, badRequest, error, formFields, json } from '@/lib/api';
-import { makeItemCode, runMatchingForFoundItem, toPublicFoundItem } from '@/lib/db';
+import { deskIdFor, makeItemCode, runMatchingForFoundItem, toPublicFoundItem } from '@/lib/db';
 import { requireUser } from '@/lib/supabase/auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { BadImageError, deletePhotos, savePhotos, signedUrl } from '@/lib/supabase/storage';
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     }
     const parsed = FoundForm.safeParse(formFields(fd));
     if (!parsed.success) return badRequest(parsed.error);
-    const { photos, buildingId, landmark, foundAt, analysis, returnMethod, availability } = parsed.data;
+    const { photos, buildingId, landmark, foundAt, analysis, returnMethod, availability, deskId } = parsed.data;
 
     if (Date.parse(foundAt) > Date.now() + FUTURE_SLACK_MS) return error('foundAt: cannot be in the future', 400);
     if (analysis.is_valid_item === false) return error("This photo can't be posted.", 400);
@@ -43,9 +43,9 @@ export async function POST(req: Request) {
     const deskHeld = me.role === 'desk' && returnMethod === 'desk' && !!me.desk_id;
     let held_at_desk_id: string | null = deskHeld ? me.desk_id : null;
     if (returnMethod === 'desk' && !deskHeld) {
-      const desk = await db.from('desks').select('id').ilike('name', '%dps%').order('id').limit(1).maybeSingle();
-      if (desk.error) return FAIL();
-      held_at_desk_id = desk.data?.id ?? null;
+      const desk = await deskIdFor(deskId); // throw -> outer catch -> FAIL()
+      if (desk === undefined) return error('deskId: unknown desk', 400);
+      held_at_desk_id = desk;
     }
 
     const id = crypto.randomUUID();

@@ -412,6 +412,14 @@ export async function dpsDeskId(): Promise<string | null> {
   return data?.id ?? null;
 }
 
+/** Desk id to stamp on a desk item: DPS when none given; undefined = unknown desk. */
+export async function deskIdFor(deskId?: string): Promise<string | null | undefined> {
+  if (!deskId) return dpsDeskId();
+  const { data, error } = await supabaseAdmin().from('desks').select('id').eq('id', deskId).maybeSingle();
+  if (error) throw new Error('Could not load desk');
+  return data?.id ?? undefined;
+}
+
 export async function publicItemOf(row: PublicItemRow): Promise<PublicFoundItem> {
   return toPublicFoundItem(row, await signedUrl(row.blurred_thumb_path, 3600));
 }
