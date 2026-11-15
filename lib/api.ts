@@ -17,6 +17,12 @@ export function notImplemented(route: string) {
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const PHOTO_MIME = ['image/jpeg', 'image/png', 'image/webp'];
 const ITEM_CODE_RE = /^FO-[0-9]{4}$/;
+// HEIC first, so the clear message wins over the generic mime one; sharp here can't decode HEIC. Name check covers an empty type.
+const Photo = z
+  .file()
+  .refine((f) => !/^image\/hei[cf]/i.test(f.type) && !/\.hei[cf]$/i.test(f.name), "HEIC photos aren't supported; use JPEG or PNG.")
+  .max(MAX_PHOTO_BYTES)
+  .mime(PHOTO_MIME);
 
 /** First issue as "<path>: <message>", status 400. Never echoes input values. */
 export function badRequest(err: z.ZodError): Response {
@@ -51,7 +57,7 @@ export const PhotoAnalysisSchema: z.ZodType<PhotoAnalysis> = z.object({
 });
 
 export const FoundAnalyzeForm = z.object({
-  photos: z.array(z.file().max(MAX_PHOTO_BYTES).mime(PHOTO_MIME)).min(1).max(3),
+  photos: z.array(Photo).min(1).max(3),
   buildingId: BuildingId,
   landmark: Landmark.optional(),
 });
@@ -94,7 +100,7 @@ export const LostForm = z
     buildingIds: jsonArray(BuildingId),
     notSure: z.enum(['true', 'false']).transform((v) => v === 'true'),
     landmarks: jsonArray(Landmark),
-    photo: z.file().max(MAX_PHOTO_BYTES).mime(PHOTO_MIME).optional(),
+    photo: Photo.optional(),
   })
   .refine((b) => b.buildingIds.length > 0 || b.notSure, {
     message: 'Pick a building or mark not sure',
@@ -114,3 +120,11 @@ export const ReviewBody = z.object({ decision: z.enum(['approve', 'reject']) });
 export const ReturnBody = z.object({ pickupCode: z.string().regex(/^[0-9]{6}$/) });
 export const ReturnMethodBody = z.object({ returnMethod: z.literal('desk') });
 export const MessageBody = z.object({ body: z.string().trim().min(1).max(1000) });
+
+export const ReportBody = z.object({
+  targetType: z.enum(['item', 'message', 'user']),
+  targetId: z.guid(),
+  reason: z.string().trim().min(1).max(500),
+});
+/** Claim proof form-data. Route: ProofForm.safeParse(formFields(fd)); the extra `photos: []` is stripped. */
+export const ProofForm = z.object({ photo: Photo });

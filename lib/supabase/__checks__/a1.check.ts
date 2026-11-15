@@ -178,6 +178,10 @@ async function main() {
   good(FoundAnalyzeForm, form({ buildingId: 'LVL', landmark: 'lobby' }, [jpg()]));
   await bad(FoundAnalyzeForm, form({ buildingId: 'LVL' }, [jpg(), jpg(), jpg(), jpg()]));
   await bad(FoundAnalyzeForm, form({ buildingId: 'LVL' }, [new File(['hi'], 'a.txt', { type: 'text/plain' })]));
+  for (const heic of [new File(['x'], 'IMG_1.HEIC', { type: 'image/heic' }), new File(['x'], 'IMG_2.heif', { type: '' })]) {
+    const r = FoundAnalyzeForm.safeParse(form({ buildingId: 'LVL' }, [heic]));
+    assert.ok(!r.success && r.error.issues[0].message === "HEIC photos aren't supported; use JPEG or PNG.", `HEIC not rejected clearly: ${heic.name}`);
+  }
   good(FoundForm, form(foundFields, [jpg()]));
   await bad(FoundForm, form({ ...foundFields, analysis: 'not-json{{' }, [jpg()]), 'not-json{{');
   await bad(FoundForm, form({ ...foundFields, analysis: JSON.stringify({ ...analysis, hidden_details: [{ detail: 'x', weight: 4 }] }) }, [jpg()]));
