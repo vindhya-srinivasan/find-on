@@ -55,4 +55,5 @@ Before editing, ask the user which person they are. If a change is needed in a f
 - `npm run build` / `npm run typecheck` / `npm run lint`
 - `npm run test:ai`: Person 3's AI test script
 - `npx tsx scripts/e2e.mts`: full loop against the real routes, DB and AI (needs `npm run dev`; `E2E_BASE=<url>` to test a deploy)
+- `npx tsx --conditions=react-server scripts/guess-game.mts`: "Can you fake a claim?" game on the seed photos. Add `--bots` to let Gemini play the guessers and an honest owner; add `--requestion` after changing the question prompt.
 - `npm run seed`: Person 4's seed script
