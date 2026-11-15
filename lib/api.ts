@@ -73,13 +73,28 @@ export const FoundForm = FoundAnalyzeForm.extend({
   availability: z.string().trim().max(200).optional(),
 });
 
-// photo: intentionally omitted for now (open question for P1).
-export const LostBody = z
+/** Form field holding a JSON array string, e.g. '["LVL"]'. Bad JSON is a zod issue, never a throw. */
+const jsonArray = <T extends z.ZodType>(item: T) =>
+  z
+    .string()
+    .transform((s, ctx) => {
+      try {
+        return JSON.parse(s) as unknown;
+      } catch {
+        ctx.issues.push({ code: 'custom', message: 'must be valid JSON', input: s });
+        return z.NEVER;
+      }
+    })
+    .pipe(z.array(item).max(10));
+
+/** Lost report form-data. Route: LostForm.safeParse(formFields(fd)); the extra `photos: []` from formFields is stripped. */
+export const LostForm = z
   .object({
     text: z.string().trim().min(3).max(2000),
-    buildingIds: z.array(BuildingId).max(10),
-    notSure: z.boolean(),
-    landmarks: z.array(Landmark).max(10),
+    buildingIds: jsonArray(BuildingId),
+    notSure: z.enum(['true', 'false']).transform((v) => v === 'true'),
+    landmarks: jsonArray(Landmark),
+    photo: z.file().max(MAX_PHOTO_BYTES).mime(PHOTO_MIME).optional(),
   })
   .refine((b) => b.buildingIds.length > 0 || b.notSure, {
     message: 'Pick a building or mark not sure',

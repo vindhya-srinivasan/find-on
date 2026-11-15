@@ -8,9 +8,11 @@ import {
   canClaim,
   canFileLostReport,
   claimFlags,
+  genericReason,
   isPrefiled,
   makeItemCode,
   makePickupCode,
+  safePublicReason,
   toPublicFoundItem,
 } from '../../db';
 import {
@@ -22,7 +24,7 @@ import {
   FoundForm,
   IdParam,
   ItemCodeParam,
-  LostBody,
+  LostForm,
   MessageBody,
   ReturnBody,
   ReturnMethodBody,
@@ -178,8 +180,15 @@ async function main() {
   good(FoundForm, form(foundFields, [jpg()]));
   await bad(FoundForm, form({ ...foundFields, analysis: 'not-json{{' }, [jpg()]), 'not-json{{');
   await bad(FoundForm, form({ ...foundFields, analysis: JSON.stringify({ ...analysis, hidden_details: [{ detail: 'x', weight: 4 }] }) }, [jpg()]));
-  good(LostBody, { text: 'blue bottle', buildingIds: [], notSure: true, landmarks: [] });
-  await bad(LostBody, { text: 'blue bottle', buildingIds: [], notSure: false, landmarks: [] });
+  const lostFields = { text: 'grey bottle', buildingIds: '["LVL"]', notSure: 'false', landmarks: '[]' };
+  assert.deepEqual(LostForm.parse(form(lostFields, [])), { text: 'grey bottle', buildingIds: ['LVL'], notSure: false, landmarks: [] });
+  const lostFd = new FormData();
+  for (const [k, v] of Object.entries(lostFields)) lostFd.append(k, v);
+  lostFd.append('photo', jpg());
+  assert.ok(LostForm.parse(formFields(lostFd)).photo instanceof File);
+  await bad(LostForm, form({ ...lostFields, buildingIds: '[]' }, []));
+  good(LostForm, form({ ...lostFields, buildingIds: '[]', notSure: 'true' }, []));
+  await bad(LostForm, form({ ...lostFields, buildingIds: '["LVL"' }, []), '["LVL"');
   good(ClaimBody, { foundItemId: UUID, lostReportId: UUID });
   await bad(ClaimBody, { foundItemId: UUID });
   good(AnswersBody, { answers: [{ question_id: 'q1', answer: 'a sticker' }] });
@@ -201,6 +210,19 @@ async function main() {
   assert.equal((await sharp(thumb).metadata()).width, 320);
   assert.ok(thumb.length < input.length);
   console.log('ok blurThumbnail');
+
+  // 9. safePublicReason: match reasons must not leak hidden details or brand
+  const bn = 'Leavey Library';
+  const generic = genericReason(row, bn);
+  assert.equal(safePublicReason('Blue bottle with a sticker on it', row, bn), generic);
+  assert.equal(safePublicReason('  Blue water bottle found at Leavey Library  ', row, bn), 'Blue water bottle found at Leavey Library');
+  assert.equal(safePublicReason('Blue bottle with a sticker', { ...row, public_title: 'Blue sticker bottle at LVL' }, bn), 'Blue bottle with a sticker');
+  assert.equal(safePublicReason('Looks like a Zojirushi bottle', row, bn), generic);
+  assert.equal(safePublicReason('Looks like an HP bottle', { ...row, brand: 'HP' }, bn), generic);
+  assert.equal(safePublicReason('Blue bottle with stickers', row, bn), generic);
+  const engraved = { ...row, hidden_details: [{ detail: 'engraving on the lid', weight: 3 as const }] };
+  assert.equal(safePublicReason('Blue bottle, engraved', engraved, bn), genericReason(engraved, bn));
+  console.log('ok safePublicReason');
 
   console.log('A1 checks passed');
 }

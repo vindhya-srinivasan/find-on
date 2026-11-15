@@ -52,6 +52,15 @@ export async function savePhotos(
   return { photo_paths, blurred_thumb_path };
 }
 
+/** Owner's optional lost-report photo. Never sent to a browser. */
+export async function saveLostPhoto(reportId: string, file: File): Promise<string> {
+  const jpeg = await toJpeg(file, 2000, 82);
+  const path = `lost/${reportId}/photo.jpg`;
+  const { error } = await supabaseAdmin().storage.from(BUCKET).upload(path, jpeg, { contentType: 'image/jpeg', upsert: false });
+  if (error) throw new Error(`Photo upload failed: ${error.message}`);
+  return path;
+}
+
 export async function deletePhotos(paths: string[]): Promise<void> {
   if (!paths.length) return;
   try {

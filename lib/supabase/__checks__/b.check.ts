@@ -267,6 +267,12 @@ async function main() {
       }
     }
     try {
+      // Matching notifies real open lost reports; text embeds public_title "... · zz-test".
+      await service.from('notifications').delete().ilike('text', '%zz-test%');
+    } catch (e) {
+      console.log(`cleanup notifications failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    try {
       await service.from('buildings').delete().eq('id', BUILDING);
     } catch (e) {
       console.log(`cleanup building failed: ${e instanceof Error ? e.message : String(e)}`);
