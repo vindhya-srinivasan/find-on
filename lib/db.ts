@@ -4,7 +4,7 @@ import { randomInt } from 'node:crypto';
 import sharp from 'sharp';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { signedUrl } from '@/lib/supabase/storage';
-import { rankMatches } from '@/lib/ai';
+import { questionLeaks, rankMatches } from '@/lib/ai';
 import { prefilter } from '@/lib/matching/prefilter';
 import type { AuthedUser } from '@/lib/supabase/auth';
 import type {
@@ -314,7 +314,15 @@ export function safeQuestions(raw: unknown, item: LeakItem): Question[] | null {
     const idx = Array.isArray(q?.detail_indexes) ? q.detail_indexes : [];
     const detail_indexes = [...new Set<number>(idx.filter((i: unknown) => Number.isInteger(i) && (i as number) >= 0 && (i as number) < n))];
     if (!detail_indexes.length) continue;
-    if (leaksHidden(`${question} ${hint}`, item)) return null;
+    // P3's questionLeaks: same stem rules as leaksHidden across ALL hidden details, but allows filler and
+    // kind-of-detail words ("text", "markings", "front"); leaksHidden rejected ~70% of safe questions.
+    // Brand words of any length (HP, JBL) are still banned here.
+    const text = `${question} ${hint}`;
+    const allowed = [item.category, item.color, item.public_title].join(' ');
+    const textWords = new Set<string>(words(text));
+    const allowedWords = new Set<string>(words(allowed));
+    const brandHit = words(item.brand).some((b) => textWords.has(b) && !allowedWords.has(b));
+    if (brandHit || questionLeaks(text, item.hidden_details ?? [], allowed).length) return null;
     out.push({ id: `q${out.length + 1}`, question, ...(hint && { hint }), detail_indexes });
   }
   return out.length ? out : null;
