@@ -54,4 +54,5 @@ Before editing, ask the user which person they are. If a change is needed in a f
 - `npm run dev`: local app at http://localhost:3000
 - `npm run build` / `npm run typecheck` / `npm run lint`
 - `npm run test:ai`: Person 3's AI test script
+- `npx tsx scripts/e2e.mts`: full loop against the real routes, DB and AI (needs `npm run dev`; `E2E_BASE=<url>` to test a deploy)
 - `npm run seed`: Person 4's seed script
