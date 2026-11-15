@@ -1,7 +1,7 @@
 // Person 2: chat after a claim passes. Contract: Team Tasks > API routes.
 import { connection } from 'next/server';
 import { IdParam, MessageBody, badRequest, error, json } from '@/lib/api';
-import { PASSED_CLAIM, displayName, type ClaimRow } from '@/lib/db';
+import { PASSED_CLAIM, displayName, inPersonCheck, type ClaimRow } from '@/lib/db';
 import { requireUser, type AuthedUser } from '@/lib/supabase/auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import type { ChatMessage, FoundItemRow } from '@/types';
@@ -12,7 +12,8 @@ const NOT_FOUND = () => error('Claim not found', 404);
 type Ctx = { params: Promise<{ id: string }> };
 type Chat = { me: AuthedUser; claim: ClaimRow; item: FoundItemRow };
 
-// Chat exists only for finder-held items, between the claimant and the finder, after the claim passes.
+// Chat exists only for finder-held items, between the claimant and the finder, after the claim passes
+// or while a borderline claim waits for an in-person check (inPersonCheck in lib/db.ts).
 async function openChat(req: Request, ctx: Ctx, write: boolean): Promise<Chat | Response> {
   const me = await requireUser(req, { write });
   if (me instanceof Response) return me;
@@ -28,7 +29,7 @@ async function openChat(req: Request, ctx: Ctx, write: boolean): Promise<Chat | 
   if (i.error) return FAIL();
   const item = i.data as FoundItemRow | null;
   if (!item || item.return_method !== 'finder' || (me.id !== claim.claimant_id && me.id !== item.finder_id)) return NOT_FOUND();
-  if (!PASSED_CLAIM.includes(claim.status)) return error('Chat opens once the claim passes verification.', 409);
+  if (!PASSED_CLAIM.includes(claim.status) && !inPersonCheck(claim)) return error('Chat opens once the claim passes verification.', 409);
   return { me, claim, item };
 }
 

@@ -30,7 +30,9 @@ function ClaimPage() {
     case 'awaiting_answers': return <Quiz claim={claim} onDone={load} />;
     case 'likely_owner':
     case 'approved': return <Verified claim={claim} />;
-    case 'needs_review': return <Status title="A person will check your answers" body="Your answers were close but need a quick human check. We'll alert you as soon as it's decided." />;
+    case 'needs_review': return claim.return_details
+      ? <InPersonCheck claim={claim} />
+      : <Status title="A person will check your answers" body="Your answers were close but need a quick human check. We'll alert you as soon as it's decided." />;
     case 'rejected': return (
       <Status
         title="We couldn’t verify this one"
@@ -141,6 +143,44 @@ function Verified({ claim }: { claim: ClaimDetail }) {
   );
 }
 
+/** Borderline claim: go where the item is and get checked in person. No pickup code until the desk or finder approves. */
+function InPersonCheck({ claim }: { claim: ClaimDetail }) {
+  const r = claim.return_details!;
+  const desk = r.method === 'desk';
+  const onTheWay = claim.item.status === 'en_route_to_desk';
+  return (
+    <div className="space-y-5">
+      <div className="pt-2 text-center">
+        <h1 className="text-2xl font-bold">Check it in person</h1>
+        <p className="mx-auto mt-1 max-w-xs text-sm text-neutral-600">
+          {desk
+            ? 'Your answers were close. Go to the desk and the staff will look at the item with you.'
+            : 'Your answers were close. Meet the finder and they will check it with you.'}
+        </p>
+      </div>
+      {desk ? (
+        <Card>
+          <p className="font-semibold">{r.desk_name ?? 'DPS Lost & Found'}</p>
+          {r.desk_hours && <p className="text-sm text-neutral-600">{r.desk_hours}</p>}
+          <p className="mt-2 text-sm text-neutral-600">
+            {onTheWay ? 'It is on its way to the desk. We will alert you when it arrives. ' : ''}Bring your USC ID. Once staff confirm it&apos;s yours, you&apos;ll get a pickup code.
+          </p>
+        </Card>
+      ) : (
+        <>
+          <Card>
+            <p className="font-semibold">{r.finder_name ? `${r.finder_name} has it` : 'The finder has it'}</p>
+            {r.finder_availability && <p className="text-sm text-neutral-600">Usually free: {r.finder_availability}</p>}
+            <p className="mt-2 text-sm text-neutral-600">Once they confirm it&apos;s yours, you&apos;ll get a pickup code to finish the handoff.</p>
+            <p className="mt-2 rounded-xl bg-cream px-3 py-2 text-sm text-[#5A4E3E]">Meet in a public, staffed place during the day, like a building lobby or the DPS office.</p>
+          </Card>
+          <Chat claimId={claim.id} />
+        </>
+      )}
+    </div>
+  );
+}
+
 function Chat({ claimId }: { claimId: string }) {
   const [msgs, setMsgs] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
@@ -203,6 +243,9 @@ function Review({ claim, onDone }: { claim: ClaimDetail; onDone: () => void }) {
           </Card>
         ))}
       </div>
+      {claim.status === 'needs_review' && claim.viewer === 'finder' && (
+        <p className="rounded-xl bg-cream px-3 py-2 text-sm text-[#5A4E3E]">Not sure? Meet them somewhere public and check together, or drop the item at DPS and let the desk decide.</p>
+      )}
       {claim.status === 'needs_review' ? (
         <div className="grid grid-cols-2 gap-3">
           <Button variant="danger" loading={busy === 'reject'} onClick={() => decide('reject')}>Not the owner</Button>

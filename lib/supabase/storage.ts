@@ -13,6 +13,7 @@ async function toJpeg(file: File, maxEdge: number, quality?: number): Promise<Bu
     const buf = Buffer.from(await file.arrayBuffer());
     return await sharp(buf)
       .rotate()
+      .flatten({ background: '#ffffff' }) // transparent PNG areas would otherwise turn black in the JPEG
       .resize({ width: maxEdge, height: maxEdge, fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality })
       .toBuffer();

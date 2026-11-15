@@ -103,7 +103,7 @@ Return:
   Everyday tools and stationery (scissors, rulers, pens, staplers, calculators) are ordinary belongings, not dangerous: treat them as valid items.
   When valid, null.
 - category: short and generic, lowercase. Use one of these if it fits: ${CATEGORIES.join(', ')}. If none fits, use a short generic noun (e.g. "remote control", "speaker"); never "other" or "item".
-- color: the single main color, lowercase (e.g. "black", "grey", "navy blue").
+- color: the single main color of the item's BODY, lowercase (e.g. "white", "grey", "navy blue"). Ignore the background, table or counter, hands, and small parts like a cap, lid, strap or sticker: a white bottle with a black lid on a dark counter is "white".
 - brand: brand or model if visible or clearly recognizable, else null.
 - hidden_details: 2–6 specific, checkable facts an owner would know, each with a weight:
   * 3 (high): stickers, engravings, names or initials, writing, unique damage (dents, cracks, stains), keychains/charms, contents of a bag or wallet, distinctive case.
