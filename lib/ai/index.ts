@@ -382,8 +382,8 @@ const GradeSchema = z.object({
 const GRADE_SYSTEM = `You grade a claimant's answers for FindOn, a USC lost-and-found app, to help decide whether they own a found item. You do NOT give a score; you give one verdict per hidden detail and code computes the score.
 
 For EACH detail index listed as covered, return exactly one verdict, judged by meaning, not exact words ("rose decal" = "pink flower sticker"; "silver" ≈ "grey"):
-- match: the claimant clearly describes this detail (any of their answers or their earlier lost report may count).
-- partial: they describe it vaguely or get part of it right ("it has a straw" for "green straw lid").
+- match: the claimant correctly describes the distinctive core of this detail (any of their answers or their earlier lost report may count). Leaving out minor attributes (exact shade, exact position, exact size) is still a match: "Fight On sticker" matches "white Fight On sticker near the bottom".
+- partial: they get only a generic part of it, missing what makes it distinctive ("it has a straw" for "green straw lid"; "a sticker" for "pink flower sticker").
 - not_mentioned: they don't address it, say they don't know, or give something too generic to tell ("normal lid").
 - contradicts: they confidently state something specific that conflicts with it ("blue screw-top lid" for "green straw lid"; "no stickers" when there is one).
 

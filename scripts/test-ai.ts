@@ -158,6 +158,20 @@ async function live() {
     check(`${c.name} → ${c.want.join('/')}`, c.want.includes(r.outcome), `(got ${r.score} ${r.outcome}; ${g.per_detail.map((d) => d.verdict).join(', ')})`);
   }
 
+  section('Demo script: "pink flower decal"');
+  const demoHidden: HiddenDetail[] = [
+    { detail: 'Pink flower sticker on the side', weight: 3 },
+    { detail: 'Hydro Flask, about 24 oz', weight: 2 },
+    { detail: 'Black flip-top lid', weight: 2 },
+  ];
+  const demoQs: Question[] = [{ id: 'q1', question: 'Describe any decorations or markings on it.', detail_indexes: [0] }];
+  const dg = await ai.gradeAnswers({
+    hidden: demoHidden, questions: demoQs, lostReportText: 'grey Hydro Flask with a pink sticker, lost near Viterbi yesterday',
+    answers: [{ question_id: 'q1', answer: 'a pink flower decal' }],
+  });
+  const ds = computeScore({ hidden: demoHidden, questions: demoQs, grade: dg, prefiledMatch: true, flags: [] });
+  check('"a pink flower decal" → likely_owner', ds.outcome === 'likely_owner', `(got ${ds.score} ${ds.outcome}; ${dg.per_detail.map((d) => d.verdict).join(', ')})`);
+
   section('rankMatches');
   const ranked = await ai.rankMatches({
     lost: { summary: 'Grey Hydro Flask with a pink sticker', category: 'water bottle', color: 'grey', brand: 'Hydro Flask', marks: ['pink sticker'], buildingNames: ['Viterbi (SAL)'] },
@@ -200,6 +214,8 @@ async function main() {
   await offline();
   if (OFFLINE) return;
   try { process.loadEnvFile('.env.local'); } catch { /* no .env.local */ }
+  // Free tier: let calls queue up to 70 s for a free model instead of failing (the app itself waits ≤12 s).
+  process.env.AI_MAX_WAIT_MS ??= '70000';
   if (!process.env.GEMINI_API_KEY) {
     console.log('\n(no GEMINI_API_KEY — skipping live Gemini tests; add it to .env.local)');
     return;
