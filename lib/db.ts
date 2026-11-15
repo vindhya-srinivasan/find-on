@@ -293,6 +293,15 @@ export type ClaimRow = {
 };
 
 export const PASSED_CLAIM: ClaimStatus[] = ['likely_owner', 'approved'];
+
+/**
+ * Borderline claim that a human should check IN PERSON where the item is (desk or finder).
+ * Score 40+ or ungraded (AI down); a list-fisher scoring under 40 never learns where the item is or who holds it.
+ * No pickup code, full photo or hidden details until the desk or finder approves.
+ */
+export function inPersonCheck(claim: Pick<ClaimRow, 'status' | 'score'>): boolean {
+  return claim.status === 'needs_review' && (claim.score == null || claim.score >= 40);
+}
 export const OPEN_CLAIM: ClaimStatus[] = ['awaiting_answers', 'likely_owner', 'needs_review', 'approved'];
 
 type Handled = Pick<FoundItemRow, 'finder_id' | 'return_method' | 'held_at_desk_id'>;
@@ -497,6 +506,9 @@ export async function buildClaimDetail(
       out.hidden_details = item.hidden_details;
       out.landmark = item.landmark;
       out.found_at = item.found_at;
+    } else if (inPersonCheck(claim)) {
+      // Where to go to be checked in person: the desk (name + hours) or the finder (first name + last initial).
+      out.return_details = await returnDetails(item);
     }
     return out;
   }

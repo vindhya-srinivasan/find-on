@@ -4,7 +4,7 @@
 //
 // Run:  npm run dev   (in another terminal)   then   npx tsx scripts/e2e.mts
 //       E2E_BASE=https://your-deploy.example npx tsx scripts/e2e.mts   to test a deployment
-// Needs .env.local with Supabase keys + GEMINI_API_KEY. Creates/reuses two test accounts:
+// Needs .env.local with Supabase keys + ANTHROPIC_API_KEY. Creates/reuses two test accounts:
 // p3-e2e-owner@usc.edu and p3-e2e-finder@usc.edu (confirmed, no email sent). Each run adds one
 // lost report, one found item and one claim to the database.
 import { readFileSync } from 'node:fs';

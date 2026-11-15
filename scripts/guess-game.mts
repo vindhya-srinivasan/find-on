@@ -2,7 +2,7 @@
 // Uses the real analyzePhoto → generateQuestions → gradeAnswers → computeScore, no database, no login.
 //
 //   npx tsx --conditions=react-server scripts/guess-game.mts          humans play at the keyboard
-//   npx tsx --conditions=react-server scripts/guess-game.mts --bots   Gemini plays 3 guessers + 1 owner per item
+//   npx tsx --conditions=react-server scripts/guess-game.mts --bots   Claude plays 3 guessers + 1 owner per item
 //   add --requestion to regenerate the questions (keeps the cached photo analysis) after a prompt change
 //
 // Items = photos in data/seed/photos/. Each photo is analyzed once and cached, so every player gets the
@@ -15,7 +15,6 @@ import { z } from 'zod';
 import type { HiddenDetail, PhotoAnalysis, Question } from '@/types';
 
 try { process.loadEnvFile('.env.local'); } catch { /* env from shell */ }
-process.env.AI_MAX_WAIT_MS ??= '70000'; // free tier: queue instead of failing
 const ai = await import('@/lib/ai');
 const { callJson } = await import('@/lib/ai/client');
 

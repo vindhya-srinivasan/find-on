@@ -74,8 +74,8 @@ function publicTitle(color: string, category: string, building: string): string 
   return `${cap(c && c !== 'unknown' ? `${c} ${cat}` : cat)} · ${building}`;
 }
 
-// HEIC/HEIF: iPhone photos the browser couldn't convert to JPEG (Gemini reads them natively).
-const ALLOWED_MEDIA = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'] as const;
+// Claude accepts these four; /api/found/analyze already converts every upload to JPEG (incl. iPhone HEIC).
+const ALLOWED_MEDIA = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
 type ImageMedia = (typeof ALLOWED_MEDIA)[number];
 
 // ---------- Task 1: analyze found photo ----------
@@ -103,7 +103,7 @@ Return:
   Everyday tools and stationery (scissors, rulers, pens, staplers, calculators) are ordinary belongings, not dangerous: treat them as valid items.
   When valid, null.
 - category: short and generic, lowercase. Use one of these if it fits: ${CATEGORIES.join(', ')}. If none fits, use a short generic noun (e.g. "remote control", "speaker"); never "other" or "item".
-- color: the single main color, lowercase (e.g. "black", "grey", "navy blue").
+- color: the single main color of the item's BODY, lowercase (e.g. "white", "grey", "navy blue"). Ignore the background, table or counter, hands, and small parts like a cap, lid, strap or sticker: a white bottle with a black lid on a dark counter is "white".
 - brand: brand or model if visible or clearly recognizable, else null.
 - hidden_details: 2–6 specific, checkable facts an owner would know, each with a weight:
   * 3 (high): stickers, engravings, names or initials, writing, unique damage (dents, cracks, stains), keychains/charms, contents of a bag or wallet, distinctive case.
@@ -130,7 +130,7 @@ export async function analyzePhoto(input: {
   const content: AiPart[] = images.map((img) => {
     const media = img.mediaType.toLowerCase().replace('image/jpg', 'image/jpeg');
     if (!ALLOWED_MEDIA.includes(media as ImageMedia)) {
-      throw new AiError(`Unsupported image type ${img.mediaType} (use JPEG, PNG, WebP or HEIC)`, 'analyzePhoto');
+      throw new AiError(`Unsupported image type ${img.mediaType} (use JPEG, PNG, GIF or WebP)`, 'analyzePhoto');
     }
     return { image: { base64: img.base64, mediaType: media } };
   });
@@ -246,8 +246,9 @@ const RankSchema = z.object({
 const RANK_SYSTEM = `You rank found items against one lost-item report for FindOn, a USC lost-and-found app. The candidates already passed a code filter on category, time and distance; your job is to judge by meaning whether each could be the same item ("silver bottle" can match "grey Hydro Flask").
 
 For every candidate return:
-- candidate_id: exactly as given.
-- score 0–100: how likely it is the same item. Consider category, color (allow near-synonyms like grey/silver), brand, and whether the owner's marks agree with the candidate's hidden details. A clear contradiction (different brand, a mark the item plainly doesn't have) should push the score below 50. Missing info is not a contradiction.
+- candidate_id: exactly as given (c1, c2, ...).
+- score 0–100: how likely it is the same item, judged on the ITEM itself: category, color (allow near-synonyms like grey/silver), brand, and whether the owner's marks agree with the candidate's hidden details. Matching brand plus a matching mark is strong evidence (80+). A clear contradiction (different brand, a mark the item plainly doesn't have) should push the score below 50. Missing info is not a contradiction.
+  Location and time were ALREADY checked by code: every candidate is within walking distance of where the owner said and inside their time window. Do NOT lower the score because the building differs; people carry items around and finders drop them at the nearest building or desk.
 - public_reason: one short sentence the OWNER will see. It may mention ONLY category, color, building and date/time window. NEVER mention brand, model, stickers, marks, damage, contents, or anything from hidden_details — not even to say it matches. Example: "Same category and color, found at Leavey Library on Nov 14, within your time window."
 ${UNTRUSTED_RULE}`;
 
@@ -268,7 +269,8 @@ export async function rankMatches(input: {
   candidates: { id: string; category: string; color: string; brand: string | null; hidden_details: HiddenDetail[]; buildingName: string; found_at: string }[];
 }): Promise<MatchResult[]> {
   if (input.candidates.length === 0) return [];
-  const byId = new Map(input.candidates.map((c) => [c.id, c]));
+  // Short ids (c1, c2…) in the prompt; a mistyped UUID could otherwise silently drop a match.
+  const byShort = new Map(input.candidates.map((c, i) => [`c${i + 1}`, c]));
 
   const lostBlock = untrusted(
     'lost_report',
@@ -279,8 +281,8 @@ export async function rankMatches(input: {
     }, null, 2),
   );
   const candBlock = JSON.stringify(
-    input.candidates.map((c) => ({
-      candidate_id: c.id, category: c.category, color: c.color, brand: c.brand,
+    input.candidates.map((c, i) => ({
+      candidate_id: `c${i + 1}`, category: c.category, color: c.color, brand: c.brand,
       hidden_details: c.hidden_details.map((d) => d.detail), building: c.buildingName,
       found_date: pacificDay(c.found_at), // campus time; the UTC timestamp can be a day ahead in the evening
     })),
@@ -295,16 +297,17 @@ export async function rankMatches(input: {
       content: `Lost report:\n${lostBlock}\n\nCandidates (found items, from the system — trusted):\n${candBlock}`,
       schema: RankSchema,
     });
+    if (process.env.AI_DEBUG) console.warn('[rankMatches] raw:', JSON.stringify(r.matches));
     const seen = new Set<string>();
     ranked = r.matches
-      .filter((m) => byId.has(m.candidate_id) && !seen.has(m.candidate_id) && seen.add(m.candidate_id))
+      .filter((m) => byShort.has(m.candidate_id.trim()) && !seen.has(m.candidate_id.trim()) && seen.add(m.candidate_id.trim()))
       .map((m) => {
-        const c = byId.get(m.candidate_id)!;
+        const c = byShort.get(m.candidate_id.trim())!;
         const secret = [c.brand ?? '', ...c.hidden_details.map((d) => d.detail)].join(' ');
         const allowed = `${c.category} ${c.color} ${c.buildingName}`;
         const leaks = leakedWords(m.public_reason, secret, allowed);
         return {
-          candidate_id: m.candidate_id,
+          candidate_id: c.id,
           score: Math.round(Math.min(100, Math.max(0, m.score))),
           public_reason: leaks.length || !m.public_reason.trim() ? codeReason(c) : m.public_reason.trim(),
         };

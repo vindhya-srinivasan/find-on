@@ -1,26 +1,14 @@
-// Person 3: shared Gemini client + callJson helper. Server-only.
-//
-// Free tier = 5 requests/min PER MODEL, so we rotate across several models with an in-memory
-// rate limiter: best model first, skip any model that is at its limit or cooling down after a
-// 429/503, and wait briefly only if every model is busy.
+// Person 3: shared Claude client + callJson helper. Server-only.
+// Every AI call in the app goes through callJson, so switching model or provider happens only in this file.
 import 'server-only';
-import { ApiError, GoogleGenAI, type Part } from '@google/genai';
-import { z } from 'zod';
+import Anthropic from '@anthropic-ai/sdk';
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import type { z } from 'zod';
 
-/** Best first. GEMINI_MODEL in .env.local jumps to the front. */
-export const MODELS = [...new Set([
-  process.env.GEMINI_MODEL,
-  'gemini-3.6-flash',
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-].filter(Boolean) as string[])];
-export const MODEL = MODELS[0];
+/** Spec model. Override with ANTHROPIC_MODEL in .env.local if needed. */
+export const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
 
-const RPM = Number(process.env.GEMINI_RPM_PER_MODEL) || 5;   // raise when on a paid key
-const MAX_WAIT_MS = Number(process.env.AI_MAX_WAIT_MS) || 12_000; // how long a request may queue
-
-/** Thrown when the model can't produce valid output (or no model is free). Routes catch this and fall back. */
+/** Thrown when Claude can't produce valid output after one retry. Routes catch this and fall back. */
 export class AiError extends Error {
   constructor(message: string, readonly task: string, readonly cause?: unknown) {
     super(message);
@@ -28,54 +16,12 @@ export class AiError extends Error {
   }
 }
 
-// ---------- rate limiter ----------
-
-const recent = new Map<string, number[]>();   // model → timestamps of calls in the last minute
-const coolUntil = new Map<string, number>();  // model → don't use before this time
-const dead = new Set<string>();               // models that 404 for this key
-
-function nextFreeAt(model: string, now: number): number {
-  const calls = (recent.get(model) ?? []).filter((t) => now - t < 60_000);
-  recent.set(model, calls);
-  const rateFree = calls.length < RPM ? now : calls[0] + 60_000;
-  return Math.max(rateFree, coolUntil.get(model) ?? 0);
-}
-
-/** Pick the best model that is free now, or wait (up to MAX_WAIT_MS) for the soonest one. */
-async function acquire(task: string, deadline: number): Promise<string> {
-  for (;;) {
-    const now = Date.now();
-    let soonest = Infinity;
-    for (const m of MODELS) {
-      if (dead.has(m)) continue;
-      const at = nextFreeAt(m, now);
-      if (at <= now) {
-        recent.get(m)!.push(now);
-        return m;
-      }
-      soonest = Math.min(soonest, at);
-    }
-    if (soonest === Infinity || soonest > deadline) {
-      throw new AiError(`AI task "${task}" failed: all Gemini models are busy (free-tier limit)`, task);
-    }
-    await new Promise((r) => setTimeout(r, soonest - now + 50));
-  }
-}
-
-function retryDelayMs(err: ApiError): number {
-  const m = /retry in ([\d.]+)s/i.exec(err.message) ?? /"retryDelay":"(\d+)s"/.exec(err.message);
-  return m ? Math.ceil(Number(m[1]) * 1000) : 60_000;
-}
-
-// ---------- client ----------
-
-let _client: GoogleGenAI | null = null;
-function client(): GoogleGenAI {
+let _client: Anthropic | null = null;
+function client(): Anthropic {
   if (!_client) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new AiError('GEMINI_API_KEY is not set', 'client');
-    // No SDK retries: the rotation below handles 429/5xx by switching models instead of waiting.
-    _client = new GoogleGenAI({ apiKey, httpOptions: { timeout: 25_000, retryOptions: { attempts: 1 } } });
+    if (!process.env.ANTHROPIC_API_KEY) throw new AiError('ANTHROPIC_API_KEY is not set', 'client');
+    // 30 s per request; the SDK itself retries 429 / 5xx / network errors twice with backoff.
+    _client = new Anthropic({ timeout: 30_000, maxRetries: 2 });
   }
   return _client;
 }
@@ -83,24 +29,22 @@ function client(): GoogleGenAI {
 /** Provider-neutral content: text, or an image as base64. */
 export type AiPart = { text: string } | { image: { base64: string; mediaType: string } };
 
-function toParts(content: AiPart[] | string): Part[] {
-  if (typeof content === 'string') return [{ text: content }];
+type ImageMedia = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+function toBlocks(content: AiPart[] | string): Anthropic.Beta.BetaContentBlockParam[] {
+  if (typeof content === 'string') return [{ type: 'text', text: content }];
   return content.map((p) =>
-    'text' in p ? { text: p.text } : { inlineData: { mimeType: p.image.mediaType, data: p.image.base64 } },
+    'text' in p
+      ? { type: 'text', text: p.text }
+      : { type: 'image', source: { type: 'base64', media_type: p.image.mediaType as ImageMedia, data: p.image.base64 } },
   );
 }
 
-/** zod → plain JSON Schema for Gemini's responseJsonSchema. */
-function jsonSchema(schema: z.ZodType): unknown {
-  const s = z.toJSONSchema(schema, { target: 'draft-7' }) as Record<string, unknown>;
-  delete s.$schema;
-  return s;
-}
+/** Reasoning effort per task: vision and grading get more thought; parsing, ranking and questions stay fast. */
+const EFFORT: Record<string, 'low' | 'medium'> = { analyzePhoto: 'medium', gradeAnswers: 'medium' };
 
 /**
- * Ask Gemini for JSON matching `schema`. JSON mode + response schema, validated with zod.
- * Bad/invalid output → retry once. Rate limit / overload → cool that model down and try another.
- * Throws AiError when it can't get valid output.
+ * Ask Claude for JSON matching `schema` (structured outputs), validate with zod anyway,
+ * retry once on bad/invalid output, then throw AiError.
  */
 export async function callJson<S extends z.ZodType>(opts: {
   task: string;
@@ -109,50 +53,40 @@ export async function callJson<S extends z.ZodType>(opts: {
   schema: S;
   maxTokens?: number;
 }): Promise<z.infer<S>> {
-  const deadline = Date.now() + MAX_WAIT_MS;
-  const parts = toParts(opts.content);
-  const schema = jsonSchema(opts.schema);
+  const format = zodOutputFormat(opts.schema);
+  const blocks = toBlocks(opts.content);
   let lastErr: unknown;
-  let badOutputs = 0;
 
-  for (let tries = 0; tries < MODELS.length + 2 && badOutputs < 2; tries++) {
-    const model = await acquire(opts.task, deadline);
+  for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const res = await client().models.generateContent({
-        model,
-        contents: [{ role: 'user', parts }],
-        config: {
-          systemInstruction: opts.system,
-          responseMimeType: 'application/json',
-          responseJsonSchema: schema,
-          maxOutputTokens: opts.maxTokens ?? 4000,
-          temperature: 0.2,
+      const res = await client().beta.messages.create({
+        model: MODEL,
+        max_tokens: opts.maxTokens ?? 4000,
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default', // if the model declines, the API re-runs the request on a fallback model
+        system: opts.system,
+        output_config: {
+          effort: EFFORT[opts.task] ?? 'low',
+          format: { type: 'json_schema', schema: format.schema },
         },
+        messages: [{ role: 'user', content: blocks }],
       });
 
-      if (res.promptFeedback?.blockReason) throw new Error(`prompt blocked: ${res.promptFeedback.blockReason}`);
-      const finish = res.candidates?.[0]?.finishReason;
-      if (finish && finish !== 'STOP') throw new Error(`generation stopped: ${finish}`);
+      if (res.stop_reason === 'refusal') throw new Error('model refused');
+      if (res.stop_reason === 'max_tokens') throw new Error('output truncated (max_tokens)');
 
-      const text = res.text;
-      if (!text) throw new Error('empty response');
+      const text = res.content
+        .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text')
+        .map((b) => b.text)
+        .join('');
       const parsed = opts.schema.safeParse(JSON.parse(text));
       if (!parsed.success) throw new Error(`schema validation failed: ${parsed.error.message}`);
       return parsed.data;
     } catch (err) {
       lastErr = err;
-      if (err instanceof AiError) throw err;
-      if (err instanceof ApiError) {
-        if (err.status === 429) { coolUntil.set(model, Date.now() + retryDelayMs(err)); continue; }
-        if ([500, 503, 504].includes(err.status)) { coolUntil.set(model, Date.now() + 30_000); continue; }
-        if (err.status === 404) { dead.add(model); continue; }
-        if ([400, 401, 403].includes(err.status)) break; // bad key / bad request won't fix itself
-      }
-      if (err instanceof Error && /timeout|timed out|abort|deadline/i.test(err.message)) {
-        coolUntil.set(model, Date.now() + 30_000);
-        continue;
-      }
-      badOutputs++; // invalid JSON / schema mismatch / blocked → one more try
+      if (err instanceof AiError) break; // missing key
+      // Bad key or bad request won't fix themselves on retry.
+      if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError || err instanceof Anthropic.BadRequestError) break;
     }
   }
   const msg = lastErr instanceof Error ? lastErr.message.slice(0, 300) : String(lastErr);
