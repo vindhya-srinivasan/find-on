@@ -499,8 +499,18 @@ export async function gradeAnswers(input: {
   const got = new Map<number, Verdict>();
   for (const v of r.per_detail) if (covered.includes(v.detail_index) && !got.has(v.detail_index)) got.set(v.detail_index, v.verdict);
 
-  return {
-    per_detail: covered.map((i) => ({ detail_index: i, verdict: got.get(i) ?? 'not_mentioned' })),
-    reason: r.reason.trim().slice(0, 500),
-  };
+  const per_detail = covered.map((i) => ({ detail_index: i, verdict: got.get(i) ?? ('not_mentioned' as Verdict) }));
+  let reason = r.reason.trim().slice(0, 500);
+  if (reason.length < 20 || /placeholder|lorem|todo/i.test(reason)) {
+    // The model occasionally returns a filler reason; reviewers need something real, so summarize the verdicts in code.
+    const say = (v: Verdict) => per_detail.filter((d) => d.verdict === v).map((d) => `"${input.hidden[d.detail_index].detail}"`);
+    const parts = [
+      say('match').length && `Matched ${say('match').join(', ')}`,
+      say('partial').length && `partly matched ${say('partial').join(', ')}`,
+      say('contradicts').length && `contradicted ${say('contradicts').join(', ')}`,
+      say('not_mentioned').length && `did not mention ${say('not_mentioned').join(', ')}`,
+    ].filter(Boolean);
+    reason = (parts.join('; ') + '.').slice(0, 500);
+  }
+  return { per_detail, reason };
 }

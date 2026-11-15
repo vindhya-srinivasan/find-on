@@ -181,11 +181,43 @@ function InPersonCheck({ claim }: { claim: ClaimDetail }) {
   );
 }
 
-function Chat({ claimId }: { claimId: string }) {
+/** Finder side of a finder-held claim: chat with the claimant and, once verified, enter their pickup code. */
+function FinderHandoff({ claim, onDone }: { claim: ClaimDetail; onDone: () => void }) {
+  const verified = claim.status === 'likely_owner' || claim.status === 'approved';
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  async function release() {
+    setBusy(true); setErr(null);
+    try { await api.returnItem(claim.item.id, code); onDone(); }
+    catch (e) { setErr(e instanceof Error ? e.message : 'Could not check the code.'); }
+    finally { setBusy(false); }
+  }
+  return (
+    <>
+      <Chat claimId={claim.id} who="the owner" />
+      {verified && (
+        <Card>
+          <label htmlFor="pickup" className="font-semibold">Owner&apos;s pickup code</label>
+          <p className="text-sm text-neutral-600">When you meet, ask for their 6-digit code and enter it here to hand the item over.</p>
+          <div className="mt-3 flex gap-2">
+            <input id="pickup" inputMode="numeric" autoComplete="off" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" className={`${inputClass} tracking-[0.3em]`} />
+            <Button onClick={release} disabled={code.length !== 6} loading={busy}>Returned</Button>
+          </div>
+          <ErrorText error={err} />
+        </Card>
+      )}
+    </>
+  );
+}
+
+function Chat({ claimId, who = 'the finder' }: { claimId: string; who?: string }) {
   const [msgs, setMsgs] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
+  const [closed, setClosed] = useState(false);
   useEffect(() => {
-    const tick = () => api.messages(claimId).then(setMsgs).catch(() => {});
+    // A 409 means chat isn't open for this claim (e.g. a low-score review): hide the box instead of erroring.
+    const tick = () => api.messages(claimId).then(setMsgs).catch(() => setClosed(true));
     tick();
     const t = setInterval(tick, 5000);
     return () => clearInterval(t);
@@ -197,6 +229,7 @@ function Chat({ claimId }: { claimId: string }) {
     setText('');
   }
 
+  if (closed) return null;
   return (
     <Card>
       <p className="mb-3 font-semibold">Plan the handoff</p>
@@ -212,7 +245,7 @@ function Chat({ claimId }: { claimId: string }) {
         ))}
       </div>
       <div className="mt-3 flex gap-2">
-        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} aria-label="Message the finder" autoComplete="off" enterKeyHint="send" placeholder="Message" className={inputClass} />
+        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} aria-label={`Message ${who}`} autoComplete="off" enterKeyHint="send" placeholder="Message" className={inputClass} />
         <Button onClick={send} disabled={!text.trim()}>Send</Button>
       </div>
     </Card>
@@ -245,6 +278,9 @@ function Review({ claim, onDone }: { claim: ClaimDetail; onDone: () => void }) {
       </div>
       {claim.status === 'needs_review' && claim.viewer === 'finder' && (
         <p className="rounded-xl bg-cream px-3 py-2 text-sm text-[#5A4E3E]">Not sure? Meet them somewhere public and check together, or drop the item at DPS and let the desk decide.</p>
+      )}
+      {claim.viewer === 'finder' && claim.item.return_method === 'finder' && ['likely_owner', 'approved', 'needs_review'].includes(claim.status) && (
+        <FinderHandoff claim={claim} onDone={onDone} />
       )}
       {claim.status === 'needs_review' ? (
         <div className="grid grid-cols-2 gap-3">

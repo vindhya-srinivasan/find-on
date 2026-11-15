@@ -1,7 +1,7 @@
 // Person 2: chat after a claim passes. Contract: Team Tasks > API routes.
 import { connection } from 'next/server';
 import { IdParam, MessageBody, badRequest, error, json } from '@/lib/api';
-import { PASSED_CLAIM, displayName, inPersonCheck, type ClaimRow } from '@/lib/db';
+import { PASSED_CLAIM, displayName, inPersonCheck, notify, type ClaimRow } from '@/lib/db';
 import { requireUser, type AuthedUser } from '@/lib/supabase/auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import type { ChatMessage, FoundItemRow } from '@/types';
@@ -73,8 +73,15 @@ export async function POST(req: Request, ctx: Ctx) {
     const body = MessageBody.safeParse(raw);
     if (!body.success) return badRequest(body.error);
 
-    const ins = await supabaseAdmin().from('messages').insert({ claim_id: chat.claim.id, sender_id: chat.me.id, body: body.data.body });
+    const db = supabaseAdmin();
+    const ins = await db.from('messages').insert({ claim_id: chat.claim.id, sender_id: chat.me.id, body: body.data.body });
     if (ins.error) return FAIL();
+
+    // Tell the other person, but keep at most one unread chat alert per claim so a conversation doesn't spam them.
+    const to = chat.me.id === chat.claim.claimant_id ? chat.item.finder_id : chat.claim.claimant_id;
+    const link = `/claims/${chat.claim.id}`;
+    const unread = await db.from('notifications').select('id').eq('user_id', to).eq('link', link).eq('read', false).like('text', 'New message%').limit(1);
+    if (!unread.error && !(unread.data ?? []).length) await notify([to], `New message about ${chat.item.public_title}`, link);
     return respond(await listMessages(chat));
   } catch {
     return FAIL();
