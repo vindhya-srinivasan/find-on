@@ -51,7 +51,7 @@ function Frame({ children }: { children: ReactNode }) {
       {inner && !onLogin ? (
         <TitleBar title={inner.title} flow={inner.flow} />
       ) : (
-        <BrandBar session={onLogin ? { status: 'out' } : session} onSignOut={async () => { await signOut(); router.replace('/login'); }} />
+        <BrandBar session={onLogin ? { status: 'out' } : session} onLoginPage={onLogin} onSignOut={async () => { await signOut(); router.replace('/login'); }} />
       )}
 
       <main className="flex-1 px-4 pb-28 pt-4">{ready ? children : <Loading />}</main>
@@ -71,7 +71,7 @@ function Mark() {
   );
 }
 
-function BrandBar({ session, onSignOut }: { session: Session; onSignOut: () => void }) {
+function BrandBar({ session, onSignOut, onLoginPage }: { session: Session; onSignOut: () => void; onLoginPage: boolean }) {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-neutral-100 bg-white/90 px-4 backdrop-blur-md">
       <Link href="/" aria-label="FindOn home" className="flex min-h-11 items-center gap-2.5 rounded-xl pr-2">
@@ -105,6 +105,11 @@ function BrandBar({ session, onSignOut }: { session: Session; onSignOut: () => v
               </button>
             </div>
           </>
+        )}
+        {session.status === 'out' && !onLoginPage && (
+          <Link href="/login" className="flex min-h-11 items-center rounded-full border border-neutral-300 px-4 text-[15px] font-semibold hover:bg-neutral-50">
+            Sign in
+          </Link>
         )}
       </div>
     </header>

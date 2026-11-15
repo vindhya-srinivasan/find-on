@@ -1,12 +1,16 @@
-// Person 1: who is signed in. Sample-data mode keeps a pretend session in this browser;
-// real mode asks Supabase.
+// Person 1: who is signed in. Asks Supabase; demo sign-in keeps a pretend session in this browser.
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { USE_MOCKS } from '@/lib/mock';
 import { supabaseBrowser } from '@/lib/supabase/client';
 
 const MOCK_KEY = 'findon-mock-user';
+
+/**
+ * Real Supabase email codes by default. Pretend sign-in (code 123456) only when
+ * NEXT_PUBLIC_MOCK_AUTH=true (demo fallback) or Supabase isn't configured.
+ */
+export const MOCK_AUTH = process.env.NEXT_PUBLIC_MOCK_AUTH === 'true' || !process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 export type Session =
   | { status: 'loading' }
@@ -26,7 +30,7 @@ export function useSession() {
   const [session, setSession] = useState<Session>({ status: 'loading' });
 
   useEffect(() => {
-    if (USE_MOCKS) {
+    if (MOCK_AUTH) {
       let email: string | null = null;
       try { email = localStorage.getItem(MOCK_KEY); } catch { /* storage blocked */ }
       // Reading browser storage once on mount is the point of this effect.
@@ -43,7 +47,7 @@ export function useSession() {
   }, []);
 
   const signOut = useCallback(async () => {
-    if (USE_MOCKS) {
+    if (MOCK_AUTH) {
       try { localStorage.removeItem(MOCK_KEY); } catch { /* storage blocked */ }
     } else {
       await supabaseBrowser().auth.signOut();

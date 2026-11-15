@@ -3,8 +3,7 @@
 
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { USE_MOCKS } from '@/lib/mock';
-import { mockSignIn } from '@/components/useSession';
+import { MOCK_AUTH, mockSignIn } from '@/components/useSession';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { Button, ErrorText, Label, Loading, inputClass } from '@/components/ui';
 
@@ -24,7 +23,7 @@ function Login() {
   async function sendCode() {
     setBusy(true); setError(null);
     try {
-      if (!USE_MOCKS) {
+      if (!MOCK_AUTH) {
         const { error } = await supabaseBrowser().auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { shouldCreateUser: true } });
         if (error) throw error;
       }
@@ -35,8 +34,8 @@ function Login() {
   async function verify() {
     setBusy(true); setError(null);
     try {
-      if (USE_MOCKS) {
-        if (code !== '123456') throw new Error('Wrong code. In sample-data mode the code is 123456.');
+      if (MOCK_AUTH) {
+        if (code !== '123456') throw new Error('Wrong code. In demo sign-in the code is 123456.');
         mockSignIn(email.trim());
       } else {
         const { error } = await supabaseBrowser().auth.verifyOtp({ email: email.trim().toLowerCase(), token: code, type: 'email' });
