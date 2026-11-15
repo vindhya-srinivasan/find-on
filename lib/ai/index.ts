@@ -245,11 +245,15 @@ For every candidate return:
 - public_reason: one short sentence the OWNER will see. It may mention ONLY category, color, building and date/time window. NEVER mention brand, model, stickers, marks, damage, contents, or anything from hidden_details — not even to say it matches. Example: "Same category and color, found at Leavey Library on Nov 14, within your time window."
 ${UNTRUSTED_RULE}`;
 
-function codeReason(c: { category: string; color: string; buildingName: string; found_at: string }): string {
-  const date = new Date(c.found_at);
-  const day = Number.isFinite(date.getTime())
+function pacificDay(iso: string): string {
+  const date = new Date(iso);
+  return Number.isFinite(date.getTime())
     ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles' })
     : 'recently';
+}
+
+function codeReason(c: { category: string; color: string; buildingName: string; found_at: string }): string {
+  const day = pacificDay(c.found_at);
   return `Similar ${c.category}${c.color ? ` (${c.color})` : ''}, found at ${c.buildingName} on ${day}.`;
 }
 
@@ -271,7 +275,8 @@ export async function rankMatches(input: {
   const candBlock = JSON.stringify(
     input.candidates.map((c) => ({
       candidate_id: c.id, category: c.category, color: c.color, brand: c.brand,
-      hidden_details: c.hidden_details.map((d) => d.detail), building: c.buildingName, found_at: c.found_at,
+      hidden_details: c.hidden_details.map((d) => d.detail), building: c.buildingName,
+      found_date: pacificDay(c.found_at), // campus time; the UTC timestamp can be a day ahead in the evening
     })),
     null, 2,
   );
@@ -371,10 +376,30 @@ function fallbackQuestions(hidden: HiddenDetail[]): Question[] {
   return qs;
 }
 
+/** Index of the most distinctive detail: highest weight, earliest listed. */
+function topDetail(hidden: HiddenDetail[]): number {
+  let best = 0;
+  hidden.forEach((d, i) => { if (d.weight > hidden[best].weight) best = i; });
+  return best;
+}
+
+/** Make sure the most distinctive detail is asked about; patch in a generic question if the AI skipped it. */
+function ensureTopCovered(qs: Question[], hidden: HiddenDetail[]): Question[] {
+  const top = topDetail(hidden);
+  if (qs.some((q) => q.detail_indexes.includes(top))) return qs;
+  const patch: Question = {
+    id: 'qx', question: 'What makes it different from others like it?',
+    hint: 'e.g. a mark, damage, writing, a decoration, something attached or inside', detail_indexes: [top],
+  };
+  // Put it first; drop the last question if we already have 3.
+  return [patch, ...qs.filter((q) => q.question !== patch.question)].slice(0, 3).map((q, n) => ({ ...q, id: `q${n + 1}` }));
+}
+
 export async function generateQuestions(input: { hidden: HiddenDetail[] }): Promise<Question[]> {
   const hidden = input.hidden;
   if (hidden.length === 0) return [];
   const list = hidden.map((d, i) => `${i}. [weight ${d.weight}] ${d.detail}`).join('\n');
+  const top = topDetail(hidden);
   let best: Question[] = [];
   let feedback = '';
 
@@ -383,15 +408,17 @@ export async function generateQuestions(input: { hidden: HiddenDetail[] }): Prom
       const r = await callJson({
         task: 'generateQuestions',
         system: QUESTIONS_SYSTEM,
-        content: `Hidden details (index. [weight] detail):\n${list}${feedback}`,
+        content: `Hidden details (index. [weight] detail):\n${list}\n\nThe first question MUST cover detail ${top}.${feedback}`,
         schema: QuestionsSchema,
       });
       const { ok, leaked } = checkQuestions(r.questions, hidden);
-      if (ok.length >= 2 || (ok.length === 1 && hidden.length === 1)) return ok;
-      if (ok.length > best.length) best = ok;
+      const coversTop = ok.some((q) => q.detail_indexes.includes(top));
+      if ((ok.length >= 2 || (ok.length === 1 && hidden.length === 1)) && coversTop) return ok;
+      if (ok.length > best.length || (coversTop && ok.length === best.length)) best = ok;
       feedback =
         '\n\nYour previous questions were rejected' +
-        (leaked.length ? ` for using these words from the details: ${leaked.join(', ')}. Do not use them or close synonyms.` : ' (yes/no or no valid detail_indexes).') +
+        (leaked.length ? ` for using these words from the details: ${leaked.join(', ')}. Do not use them or close synonyms.` : '') +
+        (!coversTop ? ` None of the accepted questions covered detail ${top}; ask about it without naming it.` : '') +
         ' Rephrase more generally.';
     } catch (err) {
       console.warn('[generateQuestions] attempt failed:', err instanceof Error ? err.message : err);
@@ -405,7 +432,7 @@ export async function generateQuestions(input: { hidden: HiddenDetail[] }): Prom
   const extra = fallbackQuestions(rest.map(({ detail, weight }) => ({ detail, weight })))
     .slice(0, 3 - best.length)
     .map((q) => ({ ...q, detail_indexes: q.detail_indexes.map((j) => rest[j].i) }));
-  return [...best, ...extra].map((q, n) => ({ ...q, id: `q${n + 1}` }));
+  return ensureTopCovered([...best, ...extra].map((q, n) => ({ ...q, id: `q${n + 1}` })), hidden);
 }
 
 // ---------- Task 5: grade answers ----------

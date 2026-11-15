@@ -139,7 +139,7 @@ async function live() {
   check('2–3 questions', qs.length >= 2 && qs.length <= 3);
   check('no yes/no questions', qs.every((q) => !/^\s*(is|are|does|do|did|has|have|was|can)\b/i.test(q.question)));
   check('no hidden words leaked', qs.every((q) => !/sticker|fight|dent|green|straw|hydro|flask/i.test(`${q.question} ${q.hint ?? ''}`)));
-  check('covers a weight-3 detail', qs.some((q) => q.detail_indexes.some((i) => HIDDEN[i].weight === 3)));
+  check('covers the most distinctive detail (sticker)', qs.some((q) => q.detail_indexes.includes(1)));
 
   section('gradeAnswers + computeScore (5 claimants, live)');
   const lostText = 'black hydro flask, lost in taper hall';
