@@ -22,6 +22,72 @@ const WHEN = [
 ] as const;
 type When = (typeof WHEN)[number]['id'];
 
+/**
+ * Questions 2 and 3 change with the item, so they always make sense.
+ * a / b = the two answers in question 2, c = question 3. `need` = which of a/b must be filled.
+ */
+type Qs = {
+  q2: string; aLabel: string; aPlaceholder: string; aChips?: string[];
+  bLabel: string; bPlaceholder: string; bOptional: boolean; bPrivate?: boolean;
+  q3: string; q3Hint: string; need: 'a' | 'ab' | 'none';
+  sentence: (kind: string, a: string, b: string, c: string) => string;
+};
+
+const GENERIC: Qs = {
+  q2: '2. Color and brand', aLabel: 'Main color', aPlaceholder: 'e.g. grey',
+  bLabel: 'Brand', bPlaceholder: 'e.g. Hydro Flask', bOptional: true,
+  q3: '3. Anything that makes it stand out?', q3Hint: 'e.g. a sticker, a case, a keychain, a scratch. Optional.', need: 'a',
+  sentence: (k, a, b, c) => [`${a} ${b} ${k}`, c && `with ${c}`].filter(Boolean).join(' '),
+};
+
+const QUESTIONS: Record<string, Qs> = {
+  'id card': {
+    q2: '2. Which ID is it?', aLabel: 'Type of ID', aPlaceholder: 'e.g. USC ID', aChips: ['USC ID', 'Driver’s license', 'Passport', 'Other'],
+    bLabel: 'Name on it', bPlaceholder: 'As printed on the card', bOptional: true, bPrivate: true,
+    q3: '3. Was it in or on anything?', q3Hint: 'e.g. a lanyard, a card holder, a phone case. Optional.', need: 'a',
+    sentence: (_k, a, b, c) => [`${a}`, b && `with the name ${b}`, c && `in ${c}`].filter(Boolean).join(' '),
+  },
+  phone: {
+    ...GENERIC, q2: '2. Model and color', aLabel: 'Model', aPlaceholder: 'e.g. iPhone 15', bLabel: 'Color', bPlaceholder: 'e.g. blue', bOptional: true,
+    q3: '3. Case or anything on it?', q3Hint: 'e.g. a clear case, a PopSocket, a cracked corner. Optional.',
+    sentence: (k, a, b, c) => [`${b} ${a} ${k}`, c && `with ${c}`].filter(Boolean).join(' '),
+  },
+  laptop: {
+    ...GENERIC, q2: '2. Model and color', aLabel: 'Model', aPlaceholder: 'e.g. MacBook Air', bLabel: 'Color', bPlaceholder: 'e.g. silver', bOptional: true,
+    q3: '3. Stickers, case or sleeve?', q3Hint: 'e.g. stickers on the lid, a black sleeve. Optional.',
+    sentence: (k, a, b, c) => [`${b} ${a} ${k}`, c && `with ${c}`].filter(Boolean).join(' '),
+  },
+  earbuds: {
+    ...GENERIC, q2: '2. Model and case color', aLabel: 'Model', aPlaceholder: 'e.g. AirPods Pro', bLabel: 'Case color', bPlaceholder: 'e.g. white', bOptional: true,
+    q3: '3. Anything on the case?', q3Hint: 'e.g. a cover, a keychain, an engraving. Optional.',
+    sentence: (k, a, b, c) => [`${b} ${a} ${k}`, c && `with ${c}`].filter(Boolean).join(' '),
+  },
+  keys: {
+    ...GENERIC, q2: '2. What’s on the key ring?', aLabel: 'Keychain or tag', aPlaceholder: 'e.g. Trojan keychain', bLabel: 'How many keys', bPlaceholder: 'e.g. 3', bOptional: true,
+    q3: '3. Anything else attached?', q3Hint: 'e.g. a car fob, a bottle opener, a USC card. Optional.',
+    sentence: (k, a, b, c) => [`${k}`, a && `on a ${a}`, b && `(${b} keys)`, c && `with ${c}`].filter(Boolean).join(' '),
+  },
+  wallet: {
+    ...GENERIC, q3: '3. Anything that makes it stand out?', q3Hint: 'e.g. a zipper, initials, a worn corner. Optional.',
+  },
+};
+
+// Typed items are matched by keyword, so "student ID", "iPhone 15" or "AirPods" get the right questions.
+const MATCHERS: [RegExp, string][] = [
+  [/\b(id|ids|i\.d\.?|identification|license|licence|passport|student card|usc card|ucard)\b/i, 'id card'],
+  [/\b(wallet|purse|card ?holder|billfold)\b/i, 'wallet'],
+  [/\b(phone|iphone|android|pixel|galaxy|cellphone|cell)\b/i, 'phone'],
+  [/\b(laptop|macbook|chromebook|notebook computer|ipad|tablet|surface)\b/i, 'laptop'],
+  [/\b(earbuds?|airpods?|headphones?|earphones?|beats|buds)\b/i, 'earbuds'],
+  [/\b(keys?|keychain|key ?ring|key ?fob|car fob)\b/i, 'keys'],
+];
+const questionsFor = (kind: string) => {
+  const t = kind.trim().toLowerCase();
+  if (QUESTIONS[t]) return QUESTIONS[t];
+  const hit = MATCHERS.find(([re]) => re.test(t));
+  return hit ? QUESTIONS[hit[1]] : GENERIC;
+};
+
 const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 text-sm font-medium ${on ? 'border-cardinal bg-red-50 text-cardinal' : 'border-neutral-300 bg-white text-neutral-800'}`;
 
@@ -45,9 +111,15 @@ export default function LostNew() {
 
   // What.
   const [kind, setKind] = useState('');
-  const [color, setColor] = useState('');
-  const [brand, setBrand] = useState('');
-  const [marks, setMarks] = useState('');
+  const [a, setA] = useState('');      // question 2, first answer
+  const [b, setB] = useState('');      // question 2, second answer
+  const [marks, setMarks] = useState(''); // question 3
+  const qs = questionsFor(kind);
+  // Picking a different kind of item clears answers that belonged to the old questions.
+  function chooseKind(k: string) {
+    if (questionsFor(k) !== qs) { setA(''); setB(''); }
+    setKind(k);
+  }
   const [when, setWhen] = useState<When>('unsure');
 
   const [photos, setPhotos] = useState<File[]>([]);
@@ -65,7 +137,8 @@ export default function LostNew() {
   }
 
   const whereDone = notSure || places.length > 0;
-  const canContinue = whereDone && kind.trim() !== '' && color.trim() !== '';
+  const q2Done = qs.need === 'none' || (a.trim() !== '' && (qs.need === 'a' || b.trim() !== ''));
+  const canContinue = whereDone && kind.trim() !== '' && q2Done;
 
   async function submit() {
     setSubmitting(true);
@@ -74,13 +147,19 @@ export default function LostNew() {
       const form = new FormData();
       // One plain sentence for the AI to parse, plus the same answers as separate fields.
       const whenText = { today: 'Lost it today.', yesterday: 'Lost it yesterday.', week: 'Lost it this week.', unsure: '' }[when];
-      const text = [`${color} ${brand} ${kind}`.replace(/\s+/g, ' ').trim(), marks.trim() && `with ${marks.trim()}`]
-        .filter(Boolean).join(' ') + `. ${whenText}`.trimEnd();
+      const sentence = qs.sentence(kind.trim(), a.trim(), b.trim(), marks.trim()).replace(/\s+/g, ' ').trim();
+      const text = `${sentence}. ${whenText}`.trimEnd();
+      const isId = qs === QUESTIONS['id card'];
       form.append('text', text);
       form.append('category', kind.trim());
-      form.append('color', color.trim());
-      form.append('brand', brand.trim());
+      const colorBrand = qs === GENERIC || qs === QUESTIONS.wallet ? { color: a, brand: b }
+        : [QUESTIONS.phone, QUESTIONS.laptop, QUESTIONS.earbuds].includes(qs) ? { color: b, brand: a }
+        : { color: '', brand: '' }; // ID cards and keys have no color/brand answers
+      form.append('color', colorBrand.color.trim());
+      form.append('brand', colorBrand.brand.trim());
+      if (qs === QUESTIONS.keys) { form.append('keychain', a.trim()); form.append('key_count', b.trim()); }
       form.append('marks', marks.trim());
+      if (isId) { form.append('id_type', a.trim()); form.append('id_name', b.trim()); }
       form.append('when', when);
       form.append('buildingIds', JSON.stringify(notSure ? [] : places.map((p) => p.id)));
       form.append('notSure', String(notSure));
@@ -154,28 +233,41 @@ export default function LostNew() {
               <Label htmlFor="kind">1. What is it?</Label>
               <div className="mb-2 flex flex-wrap gap-2">
                 {KINDS.map((k) => (
-                  <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(kind === k ? '' : k)} className={chip(kind === k)}>{k}</button>
+                  <button key={k} type="button" aria-pressed={kind === k} onClick={() => chooseKind(kind === k ? '' : k)} className={chip(kind === k)}>{k}</button>
                 ))}
               </div>
-              <input id="kind" value={kind} onChange={(e) => setKind(e.target.value)} placeholder="Or type it, e.g. umbrella" autoComplete="off" enterKeyHint="next" className={inputClass} />
+              <input id="kind" value={kind} onChange={(e) => chooseKind(e.target.value)} placeholder="Or type it, e.g. umbrella" autoComplete="off" enterKeyHint="next" className={inputClass} />
             </div>
 
             <div>
-              <p className="mb-2 text-[15px] font-semibold">2. Color and brand</p>
-              <div className="grid grid-cols-2 gap-3">
+              <p className="mb-2 text-[15px] font-semibold">{qs.q2}</p>
+              {qs.aChips && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {qs.aChips.map((c) => (
+                    <button key={c} type="button" aria-pressed={a === c} onClick={() => setA(a === c ? '' : c)} className={chip(a === c)}>{c}</button>
+                  ))}
+                </div>
+              )}
+              <div className={qs.aChips ? 'flex flex-col gap-3' : 'grid grid-cols-2 gap-3'}>
                 <div>
-                  <label htmlFor="color" className="mb-1 block text-sm text-neutral-700">Main color</label>
-                  <input id="color" value={color} onChange={(e) => setColor(e.target.value)} placeholder="e.g. grey" autoComplete="off" enterKeyHint="next" className={inputClass} />
+                  <label htmlFor="q2a" className="mb-1 block text-sm text-neutral-700">{qs.aLabel}</label>
+                  <input id="q2a" value={a} onChange={(e) => setA(e.target.value)} placeholder={qs.aPlaceholder} autoComplete="off" enterKeyHint="next" className={inputClass} />
                 </div>
                 <div>
-                  <label htmlFor="brand" className="mb-1 block text-sm text-neutral-700">Brand <span className="text-neutral-500">(optional)</span></label>
-                  <input id="brand" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Hydro Flask" autoComplete="off" enterKeyHint="next" className={inputClass} />
+                  <label htmlFor="q2b" className="mb-1 block text-sm text-neutral-700">
+                    {qs.bLabel} {qs.bOptional && <span className="text-neutral-500">(optional)</span>}
+                  </label>
+                  <input id="q2b" value={b} onChange={(e) => setB(e.target.value)} placeholder={qs.bPlaceholder} autoComplete="off" enterKeyHint="next" className={inputClass}
+                    aria-describedby={qs.bPrivate ? 'q2b-private' : undefined} />
+                  {qs.bPrivate && (
+                    <p id="q2b-private" className="mt-1 text-sm text-neutral-600">Kept private. Only used to match your ID, never shown to anyone.</p>
+                  )}
                 </div>
               </div>
             </div>
 
             <div>
-              <Label htmlFor="marks" hint="e.g. a sticker, a case, a keychain, a scratch. Optional.">3. Anything that makes it stand out?</Label>
+              <Label htmlFor="marks" hint={qs.q3Hint}>{qs.q3}</Label>
               <input id="marks" value={marks} onChange={(e) => setMarks(e.target.value)} placeholder="Type one or two details" autoComplete="off" enterKeyHint="done" className={inputClass} />
               <p className="mt-2 text-sm text-neutral-600">Tip: keep one detail to yourself. You may be asked about it to prove it&apos;s yours.</p>
             </div>
