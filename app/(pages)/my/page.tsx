@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import type { MyItems, PublicFoundItem, ClaimDetail } from '@/types';
 import { api } from '@/lib/mock';
+import { deskName } from '@/components/desks';
 import { useBuildings } from '@/components/useBuildings';
 import { claimStatusLabel, itemStatusLabel, shortDate } from '@/components/format';
 import { Badge, Button, Card, EmptyState, ErrorText, LinkButton, Loading, PageTitle, inputClass } from '@/components/ui';
@@ -108,7 +109,7 @@ function FoundRow({ item, pending, onChange }: { item: PublicFoundItem; pending:
       </div>
 
       {item.status === 'en_route_to_desk' && (
-        <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">Next: drop it at DPS Lost &amp; Found and give them code <b>{item.item_code}</b>.</p>
+        <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">Next: drop it at {deskName(item.held_at_desk_id)} and give them code <b>{item.item_code}</b>.</p>
       )}
 
       {toReview.map((c) => (

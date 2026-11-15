@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { MyItems } from '@/types';
 import { api } from '@/lib/mock';
+import { deskName } from '@/components/desks';
 
 type Todo = { text: string; cta: string; href: string; urgent: boolean };
 
@@ -16,7 +17,7 @@ function todos(me: MyItems): Todo[] {
   }
   for (const f of me.found) {
     if (f.pending_claims.some((c) => c.status === 'needs_review')) out.push({ text: `Someone claimed the ${f.category} you found`, cta: 'Review', href: '/my', urgent: true });
-    if (f.status === 'en_route_to_desk') out.push({ text: `Drop the ${f.category} at DPS, code ${f.item_code}`, cta: 'Open', href: '/my', urgent: false });
+    if (f.status === 'en_route_to_desk') out.push({ text: `Drop the ${f.category} at ${deskName(f.held_at_desk_id)}, code ${f.item_code}`, cta: 'Open', href: '/my', urgent: false });
   }
   for (const l of me.lost) {
     if (l.status === 'open' && l.match_count > 0) out.push({ text: `A match for your ${l.category} is waiting`, cta: 'Open', href: `/lost/${l.id}`, urgent: true });
