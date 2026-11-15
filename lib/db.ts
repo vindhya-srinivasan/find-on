@@ -319,9 +319,10 @@ export function safeQuestions(raw: unknown, item: LeakItem): Question[] | null {
     // Brand words of any length (HP, JBL) are still banned here.
     const text = `${question} ${hint}`;
     const allowed = [item.category, item.color, item.public_title].join(' ');
-    const textWords = new Set<string>(words(text));
+    const textWords = words(text);
     const allowedWords = new Set<string>(words(allowed));
-    const brandHit = words(item.brand).some((b) => textWords.has(b) && !allowedWords.has(b));
+    // Stem match like leaksHidden, so "Nikes" / "hydroflask" still count as the brand.
+    const brandHit = words(item.brand).some((b) => !allowedWords.has(b) && textWords.some((w) => !allowedWords.has(w) && near(w, b)));
     if (brandHit || questionLeaks(text, item.hidden_details ?? [], allowed).length) return null;
     out.push({ id: `q${out.length + 1}`, question, ...(hint && { hint }), detail_indexes });
   }

@@ -13,6 +13,7 @@ import {
   makeItemCode,
   makePickupCode,
   safePublicReason,
+  safeQuestions,
   toPublicFoundItem,
 } from '../../db';
 import {
@@ -223,6 +224,14 @@ async function main() {
   const engraved = { ...row, hidden_details: [{ detail: 'engraving on the lid', weight: 3 as const }] };
   assert.equal(safePublicReason('Blue bottle, engraved', engraved, bn), genericReason(engraved, bn));
   console.log('ok safePublicReason');
+
+  // 10. safeQuestions: brand is banned by stem, like leaksHidden (plural / joined forms too)
+  const q = (question: string, item = row) => safeQuestions([{ question, hint: '', detail_indexes: [0] }], item);
+  assert.ok(q('Describe any markings on the outside.'), 'safe question rejected');
+  assert.equal(q('What do your Zojirushis look like?'), null);
+  assert.equal(q('Describe the hydroflask.', { ...row, brand: 'Hydro Flask' }), null);
+  assert.equal(q('Is it an HP?', { ...row, brand: 'HP' }), null);
+  console.log('ok safeQuestions');
 
   console.log('A1 checks passed');
 }
