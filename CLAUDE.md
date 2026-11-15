@@ -35,7 +35,7 @@ Before editing, ask the user which person they are. If a change is needed in a f
 
 ## AI layer (Person 3, `lib/ai/`)
 - **Provider:** Google Gemini through `@google/genai`. Every call goes through `callJson` in `lib/ai/client.ts` (JSON mode + response schema, zod validation, one retry on bad output). To change provider or model, edit only that file.
-- **Free tier:** 5 requests/min **per model**. `client.ts` rotates across `gemini-3.6-flash` → `gemini-3.5-flash` → `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`, with an in-memory rate limiter. A 429/503 cools that model down and switches to the next one. A request waits at most 12 s for a free model, then throws. (`gemini-3.7/3.8-flash` were overloaded on Nov 14.)
+- **Free tier:** 5 requests/min **and 20 requests/day per model** (≈80 AI calls/day for the whole app across 4 models; resets at midnight Pacific). Don't burn it on repeated test runs before the demo. `client.ts` rotates across `gemini-3.6-flash` → `gemini-3.5-flash` → `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`, with an in-memory rate limiter. A 429/503 cools that model down and switches to the next one. A request waits at most 12 s for a free model, then throws. (`gemini-3.7/3.8-flash` were overloaded on Nov 14.)
 - **Env** (`.env.local`): `GEMINI_API_KEY` (required). Optional: `GEMINI_MODEL` (tried first), `GEMINI_RPM_PER_MODEL` (raise on a paid key), `AI_MAX_WAIT_MS`, `AI_DEBUG=1` (logs rejected questions).
 - **Functions** (`lib/ai/index.ts`; signatures are the Team Tasks contract):
   | Function | On failure |
@@ -55,5 +55,6 @@ Before editing, ask the user which person they are. If a change is needed in a f
 - `npm run build` / `npm run typecheck` / `npm run lint`
 - `npm run test:ai`: Person 3's AI test script
 - `npx tsx scripts/e2e.mts`: full loop against the real routes, DB and AI (needs `npm run dev`; `E2E_BASE=<url>` to test a deploy)
+- `npx tsx scripts/e2e-edge.mts`: 46 edge-case checks (fishing rule, guessers, limits, desk flow, two passers, non-USC…) with throwaway accounts it deletes afterwards. Uses ~40 AI calls: half a day of free quota.
 - `npx tsx --conditions=react-server scripts/guess-game.mts`: "Can you fake a claim?" game on the seed photos. Add `--bots` to let Gemini play the guessers and an honest owner; add `--requestion` after changing the question prompt.
 - `npm run seed`: Person 4's seed script

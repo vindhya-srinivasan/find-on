@@ -62,6 +62,13 @@ async function acquire(task: string, deadline: number): Promise<string> {
   }
 }
 
+function msUntilPacificMidnight(): number {
+  const now = new Date();
+  const la = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+  const next = new Date(la); next.setHours(24, 0, 30, 0);
+  return Math.max(60_000, next.getTime() - la.getTime());
+}
+
 function retryDelayMs(err: ApiError): number {
   const m = /retry in ([\d.]+)s/i.exec(err.message) ?? /"retryDelay":"(\d+)s"/.exec(err.message);
   return m ? Math.ceil(Number(m[1]) * 1000) : 60_000;
@@ -143,7 +150,13 @@ export async function callJson<S extends z.ZodType>(opts: {
       lastErr = err;
       if (err instanceof AiError) throw err;
       if (err instanceof ApiError) {
-        if (err.status === 429) { coolUntil.set(model, Date.now() + retryDelayMs(err)); continue; }
+        if (err.status === 429) {
+          // Daily free-tier cap (20/model/day): skip this model until the quota resets (midnight Pacific).
+          const perDay = /PerDay/i.test(err.message);
+          if (perDay) console.warn(`[ai] ${model} daily quota used up; skipping it until the quota resets`);
+          coolUntil.set(model, Date.now() + (perDay ? msUntilPacificMidnight() : retryDelayMs(err)));
+          continue;
+        }
         if ([500, 503, 504].includes(err.status)) { coolUntil.set(model, Date.now() + 30_000); continue; }
         if (err.status === 404) { dead.add(model); continue; }
         if ([400, 401, 403].includes(err.status)) break; // bad key / bad request won't fix itself
