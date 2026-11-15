@@ -1,6 +1,6 @@
 // Person 2: finder switches the item to a desk. Contract: Team Tasks > API routes.
 import { IdParam, ReturnMethodBody, badRequest, error, json } from '@/lib/api';
-import { dpsDeskId, publicItemOf } from '@/lib/db';
+import { deskIdFor, publicItemOf } from '@/lib/db';
 import { requireUser } from '@/lib/supabase/auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import type { FoundItemRow } from '@/types';
@@ -29,9 +29,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     if (r.error) return FAIL();
     if (!r.data || r.data.finder_id !== me.id) return NOT_FOUND();
 
+    const desk = await deskIdFor(body.data.deskId);
+    if (desk === undefined) return error('deskId: unknown desk', 400);
+
     const u = await db
       .from('found_items')
-      .update({ status: 'en_route_to_desk', return_method: 'desk', held_at_desk_id: await dpsDeskId(), finder_availability: null })
+      .update({ status: 'en_route_to_desk', return_method: 'desk', held_at_desk_id: desk, finder_availability: null })
       .eq('id', id)
       .eq('status', 'with_finder')
       .select();
