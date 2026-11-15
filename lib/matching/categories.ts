@@ -45,8 +45,14 @@ export function sameCategoryGroup(a: string | null | undefined, b: string | null
   const ga = categoryGroup(a);
   const gb = categoryGroup(b);
   if (ga === 'other' || gb === 'other') {
-    // Unknown categories: only match on the same exact text, so "calculator" still finds "calculator".
-    return ga === gb && (a ?? '').toLowerCase().trim() === (b ?? '').toLowerCase().trim();
+    // Unknown categories: only match on the same text, so "calculator" still finds "calculator".
+    // Singular and plural count as the same ("shoelace" finds "shoelaces", "box" finds "boxes").
+    return ga === gb && sameWord((a ?? '').toLowerCase().trim(), (b ?? '').toLowerCase().trim());
   }
   return ga === gb;
+}
+
+function sameWord(a: string, b: string): boolean {
+  const pluralOf = (one: string, many: string) => many === `${one}s` || many === `${one}es`;
+  return a === b || pluralOf(a, b) || pluralOf(b, a);
 }
