@@ -1,6 +1,7 @@
 // Person 1: root layout (mobile-first shell; bottom nav goes here).
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { StartupSplash } from "@/components/StartupSplash";
 
 export const metadata: Metadata = {
   title: "FindOn: USC Lost & Found",
@@ -22,7 +23,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       </head>
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">
+        <StartupSplash />
+        {children}
+      </body>
     </html>
   );
 }
