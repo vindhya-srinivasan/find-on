@@ -1,7 +1,7 @@
 // Person 2: recent public listings for the home screen (PublicFoundItem[], newest first, open items only).
 import { connection } from 'next/server';
 import { error, json } from '@/lib/api';
-import { PUBLIC_ITEM_COLS, publicItemsOf, type PublicItemRow } from '@/lib/db';
+import { PUBLIC_ITEM_COLS, publicItemsOf, sweepStale, type PublicItemRow } from '@/lib/db';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
 const FAIL = () => error('Something went wrong. Try again.', 500);
@@ -9,6 +9,7 @@ const FAIL = () => error('Something went wrong. Try again.', 500);
 export async function GET() {
   await connection();
   try {
+    await sweepStale();
     const { data, error: dbError } = await supabaseAdmin()
       .from('found_items')
       .select(PUBLIC_ITEM_COLS)

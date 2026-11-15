@@ -137,7 +137,8 @@ async function main() {
 
     const jpeg = await sharp({ create: { width: 64, height: 64, channels: 3, background: { r: 120, g: 120, b: 120 } } }).jpeg().toBuffer();
     const file = (name: string) => new File([new Uint8Array(jpeg)], name, { type: 'image/jpeg' });
-    const secret = { detail: `HIDDENDETAIL${rand} sticker`, brand: `ZBR${rand}`, landmark: `LMK${rand}` };
+    // "pink" matches the lost text, so the real AI scores the pair reliably >= 50.
+    const secret = { detail: `pink HIDDENDETAIL${rand} sticker`, brand: `ZBR${rand}`, landmark: `LMK${rand}` };
     const banned: [string, string][] = [
       ['detail text', secret.detail], ['brand text', secret.brand], ['landmark text', secret.landmark],
       ['finder id', bId], ['finder email', emailB], ['photo_paths', 'photo_paths'], ['hidden_details', 'hidden_details'],

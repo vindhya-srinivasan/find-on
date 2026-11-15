@@ -2,7 +2,7 @@
 import { connection } from 'next/server';
 import { error, json } from '@/lib/api';
 import {
-  OPEN_CLAIM, PASSED_CLAIM, PUBLIC_ITEM_COLS, publicItemsOf, retryAfter, reviewerClaimList,
+  OPEN_CLAIM, PASSED_CLAIM, PUBLIC_ITEM_COLS, publicItemsOf, retryAfter, reviewerClaimList, sweepStale,
   type ClaimDetailOut, type ClaimRow, type PublicItemRow,
 } from '@/lib/db';
 import { requireUser } from '@/lib/supabase/auth';
@@ -22,6 +22,7 @@ export async function GET(req: Request) {
   try {
     const me = await requireUser(req);
     if (me instanceof Response) return me;
+    await sweepStale(me.id);
     const db = supabaseAdmin();
     const newest = { ascending: false };
 
