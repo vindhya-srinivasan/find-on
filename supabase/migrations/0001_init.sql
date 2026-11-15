@@ -1,4 +1,5 @@
--- NOT APPLIED. Apply in Phase A3.
+-- Paste once into Supabase SQL Editor (whole file). Runs as one transaction.
+begin;
 
 create table buildings (
   id text primary key,
@@ -148,12 +149,19 @@ create policy buildings_read on buildings for select to anon, authenticated usin
 create policy desks_read on desks for select to anon, authenticated using (true);
 create policy users_read_own on users for select to authenticated using (id = (select auth.uid()));
 
--- Explicit grants because newer Supabase projects may not auto-expose public tables; confirm in A3.
+-- Grants: auto-expose is OFF on this project, so nothing is granted unless written here.
+grant usage on schema public to anon, authenticated, service_role;
 revoke all on buildings, desks, users, found_items, lost_reports, matches, claims, messages, abuse_reports, notifications from anon, authenticated;
-grant select on buildings, desks, users to anon, authenticated;
+grant select on buildings, desks to anon, authenticated;
+grant select on users to authenticated; -- RLS users_read_own limits this to the caller's own row
 grant all on all tables in schema public to service_role;
+grant usage, select on all sequences in schema public to service_role; -- none today (uuid/text keys)
+alter default privileges in schema public grant all on tables to service_role;
+alter default privileges in schema public grant usage, select on sequences to service_role;
 
 -- Private photo bucket; no storage.objects policies, thumbnails are also served by signed URL.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('photos', 'photos', false, 10485760, array['image/jpeg','image/png','image/webp'])
 on conflict (id) do nothing;
+
+commit;
