@@ -56,6 +56,9 @@ export const PhotoAnalysisSchema: z.ZodType<PhotoAnalysis> = z.object({
   is_valuable: z.boolean(),
 });
 
+// Optional desk override (e.g. 'its'); blank counts as absent, so old callers get DPS.
+const DeskId = z.string().trim().toLowerCase().max(20).optional().transform((v) => v || undefined);
+
 export const FoundAnalyzeForm = z.object({
   photos: z.array(Photo).min(1).max(3),
   buildingId: BuildingId,
@@ -77,6 +80,7 @@ export const FoundForm = FoundAnalyzeForm.extend({
     .pipe(PhotoAnalysisSchema),
   returnMethod: z.enum(['desk', 'finder'] as const satisfies readonly ReturnMethod[]),
   availability: z.string().trim().max(200).optional(),
+  deskId: DeskId,
 });
 
 /** Form field holding a JSON array string, e.g. '["LVL"]'. Bad JSON is a zod issue, never a throw. */
@@ -118,7 +122,7 @@ export const AnswersBody = z.object({
 
 export const ReviewBody = z.object({ decision: z.enum(['approve', 'reject']) });
 export const ReturnBody = z.object({ pickupCode: z.string().regex(/^[0-9]{6}$/) });
-export const ReturnMethodBody = z.object({ returnMethod: z.literal('desk') });
+export const ReturnMethodBody = z.object({ returnMethod: z.literal('desk'), deskId: DeskId });
 export const MessageBody = z.object({ body: z.string().trim().min(1).max(1000) });
 
 export const ReportBody = z.object({
